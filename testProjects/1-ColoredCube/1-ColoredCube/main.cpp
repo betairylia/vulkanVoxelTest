@@ -29,22 +29,19 @@ HWND m_window;
 /*
 	Win32 window
 */
-static void run(struct sample_info *info) 
+static void run()
 {
 	/* Placeholder for samples that want to show dynamic content */
 }
 
-LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
+LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-	struct sample_info *info = reinterpret_cast<struct sample_info *>(
-		GetWindowLongPtr(hWnd, GWLP_USERDATA));
-
 	switch (uMsg) {
 	case WM_CLOSE:
 		PostQuitMessage(0);
 		break;
 	case WM_PAINT:
-		run(info);
+		run();
 		return 0;
 	default:
 		break;
