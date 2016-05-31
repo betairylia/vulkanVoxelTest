@@ -272,16 +272,30 @@ VkInstance CreateInstance(string instanceName)
 	app_info.engineVersion = 1;
 	app_info.apiVersion = VK_API_VERSION_1_0;
 
+	vector<char*> enabledInstanceExtensions;
+	enabledInstanceExtensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
+	enabledInstanceExtensions.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
+#ifdef VALIDATE_VULKAN
+	enabledInstanceExtensions.push_back("VK_EXT_debug_report");
+#endif
+
+	vector<char*> enabledInstanceLayers;
+#ifdef VALIDATE_VULKAN
+	enabledInstanceLayers.push_back("VK_LAYER_LUNARG_standard_validation");
+#endif
+
 	// initialize the VkInstanceCreateInfo structure
 	VkInstanceCreateInfo inst_info = {};
 	inst_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 	inst_info.pNext = NULL;
 	inst_info.flags = 0;
 	inst_info.pApplicationInfo = &app_info;
-	inst_info.enabledExtensionCount = 0;
-	inst_info.ppEnabledExtensionNames = NULL;
-	inst_info.enabledLayerCount = 0;
-	inst_info.ppEnabledLayerNames = NULL;
+	inst_info.enabledExtensionCount = (uint32_t)enabledInstanceExtensions.size();
+	inst_info.ppEnabledExtensionNames = enabledInstanceExtensions.data();
+	inst_info.enabledLayerCount = (uint32_t)enabledInstanceLayers.size();
+	inst_info.ppEnabledLayerNames = enabledInstanceLayers.data();
+
+	//We need to request the extensions necessary to create a surface!
 
 	VkInstance inst;
 	VkResult res;
