@@ -6,6 +6,8 @@
 #include <vulkan/vulkan.h>
 #include <vulkan/vk_sdk_platform.h>
 
+#include <Windows.h>
+
 using namespace std;
 
 /*
@@ -19,6 +21,92 @@ uint32_t m_queueCount;
 vector<VkQueueFamilyProperties> m_queueProps;
 
 VkDevice m_device;
+
+///win32
+HINSTANCE m_connection;
+HWND m_window;
+
+/*
+	Win32 window
+*/
+static void run(struct sample_info *info) 
+{
+	/* Placeholder for samples that want to show dynamic content */
+}
+
+LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
+{
+	struct sample_info *info = reinterpret_cast<struct sample_info *>(
+		GetWindowLongPtr(hWnd, GWLP_USERDATA));
+
+	switch (uMsg) {
+	case WM_CLOSE:
+		PostQuitMessage(0);
+		break;
+	case WM_PAINT:
+		run(info);
+		return 0;
+	default:
+		break;
+	}
+
+	return (DefWindowProc(hWnd, uMsg, wParam, lParam));
+}
+
+void initWindow(int width, int height, string windowTitle)
+{
+	//char title[100];
+	//sprintf(title, "%s", windowTitle.c_str());
+
+	WNDCLASSEX win_class;
+	assert(width > 0);
+	assert(height > 0);
+
+	m_connection = GetModuleHandle(NULL);
+
+	// Initialize the window class structure:
+	win_class.cbSize = sizeof(WNDCLASSEX);
+	win_class.style = CS_HREDRAW | CS_VREDRAW;
+	win_class.lpfnWndProc = WndProc;
+	win_class.cbClsExtra = 0;
+	win_class.cbWndExtra = 0;
+	win_class.hInstance = m_connection; // hInstance
+	win_class.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+	win_class.hCursor = LoadCursor(NULL, IDC_ARROW);
+	win_class.hbrBackground = (HBRUSH)GetStockObject(WHITE_BRUSH);
+	win_class.lpszMenuName = NULL;
+	win_class.lpszClassName = windowTitle.c_str();
+	win_class.hIconSm = LoadIcon(NULL, IDI_WINLOGO);
+	// Register window class:
+	if (!RegisterClassEx(&win_class)) {
+		// It didn't work, so try to give a useful error:
+		printf("Unexpected error trying to start the application!\n");
+		fflush(stdout);
+		exit(1);
+	}
+	// Create window with the registered class:
+	RECT wr = { 0, 0, width, height };
+	AdjustWindowRect(&wr, WS_OVERLAPPEDWINDOW, FALSE);
+	m_window = CreateWindowEx(0,
+		windowTitle.c_str(),					// class name
+		windowTitle.c_str(),					// app name
+		WS_OVERLAPPEDWINDOW |					// window style
+		WS_VISIBLE | WS_SYSMENU,
+		100, 100,								// x/y coords
+		wr.right - wr.left,						// width
+		wr.bottom - wr.top,						// height
+		NULL,									// handle to parent
+		NULL,									// handle to menu
+		m_connection,							// hInstance
+		NULL);									// no extra parameters
+	if (!m_window) {
+		// It didn't work, so try to give a useful error:
+		printf("Cannot create a window in which to draw!\n");
+		fflush(stdout);
+		exit(1);
+	}
+	//SetWindowLongPtr(m_window, GWLP_USERDATA, (LONG_PTR)&info);
+}
 
 
 /*
@@ -130,6 +218,8 @@ VkDevice CreateDevice(vector<VkPhysicalDevice> &gpus, uint32_t &queueCount, vect
 
 int main(int argc, char *argv[])
 {
+	initWindow(800, 600, "ColoredCube");
+
 	m_instance = CreateInstance("Colored Cube");
 
 	EnumeratePhysicalDevices(m_instance, m_GPUs);
