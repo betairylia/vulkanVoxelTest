@@ -2,6 +2,10 @@
 #define VK_USE_PLATFORM_WIN32_KHR
 #define NOMINMAX /* Don't let Windows define min() or max() */
 
+/* Number of samples needs to be the same at image creation,      */
+/* renderpass creation and pipeline creation.                     */
+#define NUM_SAMPLES VK_SAMPLE_COUNT_1_BIT
+
 #include <iostream>
 #include <cstdlib>
 #include <string>
@@ -21,7 +25,15 @@ using namespace std;
 typedef struct _swap_chain_buffers {
 	VkImage image;
 	VkImageView view;
-} swap_chain_buffer;
+} SwapChainBuffer;
+
+typedef struct _depth {
+	VkFormat format;
+
+	VkImage image;
+	VkImageView view;
+	VkDeviceMemory memory;
+} DepthMap;
 
 
 /*
@@ -35,6 +47,9 @@ uint32_t m_queueCount;
 uint32_t m_queueFamilyIndex;//index of the queue founded
 vector<VkQueueFamilyProperties> m_queueProps;
 
+VkPhysicalDeviceProperties m_GPUProperties;
+VkPhysicalDeviceMemoryProperties m_memoryProperties;
+
 VkDevice m_device;
 
 VkCommandPool m_cmdPool;
@@ -47,7 +62,9 @@ VkQueue m_queue;
 VkSwapchainKHR m_swapChain;
 VkFormat m_colorImgFormat;
 uint32_t m_swapChainImageCount;
-vector<swap_chain_buffer> m_swapChainImgBuffer;
+vector<SwapChainBuffer> m_swapChainImgBuffer;
+
+DepthMap m_depthMap;
 
 ///win32
 HINSTANCE m_connection;
@@ -198,7 +215,25 @@ void QueueCommandBuffer(VkCommandBuffer &cmdBuf, VkDevice &device, VkQueue &queu
 	vkDestroyFence(device, drawFence, NULL);
 }
 
-void set_image_layout(VkCommandBuffer &cmdBuf, VkQueue &queue, VkImage image,
+bool MemoryTypeFromProperties(VkPhysicalDeviceMemoryProperties memory_properties, uint32_t typeBits, VkFlags requirements_mask, uint32_t *typeIndex)
+{
+	// Search memtypes to find first index with those properties
+	for (uint32_t i = 0; i < 32; i++) {
+		if ((typeBits & 1) == 1) {
+			// Type is available, does it match user properties?
+			if ((memory_properties.memoryTypes[i].propertyFlags &
+				requirements_mask) == requirements_mask) {
+				*typeIndex = i;
+				return true;
+			}
+		}
+		typeBits >>= 1;
+	}
+	// No memory types matched, return failure
+	return false;
+}
+
+void SetImageLayout(VkCommandBuffer &cmdBuf, VkQueue &queue, VkImage image,
 	VkImageAspectFlags aspectMask,
 	VkImageLayout old_image_layout,
 	VkImageLayout new_image_layout) {
@@ -313,7 +348,7 @@ VkInstance CreateInstance(string instanceName)
 	return inst;
 }
 
-void EnumeratePhysicalDevices(VkInstance &inst, vector<VkPhysicalDevice> &gpus)
+void EnumeratePhysicalDevices(VkInstance &inst, vector<VkPhysicalDevice> &gpus, VkPhysicalDeviceMemoryProperties &memory_properties, VkPhysicalDeviceProperties &gpu_props)
 {
 	uint32_t gpu_count = 1;
 	VkResult res = vkEnumeratePhysicalDevices(inst, &gpu_count, NULL);
@@ -321,6 +356,9 @@ void EnumeratePhysicalDevices(VkInstance &inst, vector<VkPhysicalDevice> &gpus)
 	gpus.resize(gpu_count);
 	res = vkEnumeratePhysicalDevices(inst, &gpu_count, gpus.data());
 	assert(!res && gpu_count >= 1);
+
+	vkGetPhysicalDeviceMemoryProperties(gpus[0], &memory_properties);
+	vkGetPhysicalDeviceProperties(gpus[0], &gpu_props);
 }
 
 VkDevice CreateDevice(
@@ -465,7 +503,7 @@ VkSwapchainKHR CreateSwapChain(
 	VkPhysicalDevice gpu, VkSurfaceKHR surface, VkFormat &format,
 	int width, int height,
 	VkDevice device,
-	uint32_t &swapChainImageCount, vector<swap_chain_buffer> &buffer,
+	uint32_t &swapChainImageCount, vector<SwapChainBuffer> &buffer,
 	VkCommandBuffer &cmdBuf, VkQueue &queue,
 	const uint32_t queueFamilyIndex)
 {
@@ -491,7 +529,7 @@ VkSwapchainKHR CreateSwapChain(
 		assert(formatCount >= 1);
 		format = surfFormats[0].format;
 	}
-
+	free(surfFormats);
 
 	VkSurfaceCapabilitiesKHR surfCapabilities;
 
@@ -623,7 +661,7 @@ VkSwapchainKHR CreateSwapChain(
 
 		buffer[i].image = swapchainImages[i];
 
-		set_image_layout(cmdBuf, queue, buffer[i].image, VK_IMAGE_ASPECT_COLOR_BIT,
+		SetImageLayout(cmdBuf, queue, buffer[i].image, VK_IMAGE_ASPECT_COLOR_BIT,
 			VK_IMAGE_LAYOUT_UNDEFINED,
 			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
@@ -640,6 +678,115 @@ VkSwapchainKHR CreateSwapChain(
 	return swapChain;
 }
 
+DepthMap CreateDepthMap(
+	VkPhysicalDevice gpu, VkDevice device, int width, int height,
+	VkPhysicalDeviceMemoryProperties &memory_properties, VkCommandBuffer &cmdBuf,
+	VkQueue &queue)
+{
+	VkResult res;
+	DepthMap depth;
+
+	BeginCommandBuffer(cmdBuf);
+
+	VkImageCreateInfo image_info = {};
+	const VkFormat depth_format = VK_FORMAT_D16_UNORM;
+	VkFormatProperties props;
+	vkGetPhysicalDeviceFormatProperties(gpu, depth_format, &props);
+	if (props.linearTilingFeatures &
+		VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) {
+		image_info.tiling = VK_IMAGE_TILING_LINEAR;
+	}
+	else if (props.optimalTilingFeatures &
+		VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) {
+		image_info.tiling = VK_IMAGE_TILING_OPTIMAL;
+	}
+	else {
+		/* Try other depth formats? */
+		std::cout << "VK_FORMAT_D16_UNORM Unsupported.\n";
+		exit(-1);
+	}
+
+	image_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+	image_info.pNext = NULL;
+	image_info.imageType = VK_IMAGE_TYPE_2D;
+	image_info.format = depth_format;
+	image_info.extent.width = width;
+	image_info.extent.height = height;
+	image_info.extent.depth = 1;
+	image_info.mipLevels = 1;
+	image_info.arrayLayers = 1;
+	image_info.samples = NUM_SAMPLES;
+	image_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	image_info.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+	image_info.queueFamilyIndexCount = 0;
+	image_info.pQueueFamilyIndices = NULL;
+	image_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	image_info.flags = 0;
+
+	VkMemoryAllocateInfo mem_alloc = {};
+	mem_alloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	mem_alloc.pNext = NULL;
+	mem_alloc.allocationSize = 0;
+	mem_alloc.memoryTypeIndex = 0;
+
+	VkImageViewCreateInfo view_info = {};
+	view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	view_info.pNext = NULL;
+	view_info.image = VK_NULL_HANDLE;
+	view_info.format = depth_format;
+	view_info.components.r = VK_COMPONENT_SWIZZLE_R;
+	view_info.components.g = VK_COMPONENT_SWIZZLE_G;
+	view_info.components.b = VK_COMPONENT_SWIZZLE_B;
+	view_info.components.a = VK_COMPONENT_SWIZZLE_A;
+	view_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+	view_info.subresourceRange.baseMipLevel = 0;
+	view_info.subresourceRange.levelCount = 1;
+	view_info.subresourceRange.baseArrayLayer = 0;
+	view_info.subresourceRange.layerCount = 1;
+	view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+	view_info.flags = 0;
+
+	VkMemoryRequirements mem_reqs;
+
+	depth.format = depth_format;
+
+	/* Create image */
+	res = vkCreateImage(device, &image_info, NULL, &depth.image);
+	assert(res == VK_SUCCESS);
+
+	vkGetImageMemoryRequirements(device, depth.image, &mem_reqs);
+
+	mem_alloc.allocationSize = mem_reqs.size;
+	/* Use the memory properties to determine the type of memory required */
+	bool pass = MemoryTypeFromProperties(memory_properties, mem_reqs.memoryTypeBits,
+		0, /* No Requirements */
+		&mem_alloc.memoryTypeIndex);
+	assert(pass);
+
+	/* Allocate memory */
+	res = vkAllocateMemory(device, &mem_alloc, NULL, &depth.memory);
+	assert(res == VK_SUCCESS);
+
+	/* Bind memory */
+	res = vkBindImageMemory(device, depth.image, depth.memory, 0);
+	assert(res == VK_SUCCESS);
+
+	/* Set the image layout to depth stencil optimal */
+	SetImageLayout(cmdBuf, queue, depth.image, VK_IMAGE_ASPECT_DEPTH_BIT,
+		VK_IMAGE_LAYOUT_UNDEFINED,
+		VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+
+	/* Create image view */
+	view_info.image = depth.image;
+	res = vkCreateImageView(device, &view_info, NULL, &depth.view);
+	assert(res == VK_SUCCESS);
+
+	EndCommandBuffer(cmdBuf);
+	QueueCommandBuffer(cmdBuf, device, queue);
+
+	return depth;
+}
+
 /*
 	Main
 */
@@ -652,7 +799,7 @@ int main(int argc, char *argv[])
 	m_instance = CreateInstance("Colored Cube");
 
 	//Enumerate & Create device
-	EnumeratePhysicalDevices(m_instance, m_GPUs);
+	EnumeratePhysicalDevices(m_instance, m_GPUs, m_memoryProperties, m_GPUProperties);
 	m_device = CreateDevice(m_GPUs, m_queueCount, m_queueProps, m_queueFamilyIndex);
 
 	//Init command buffer
@@ -665,6 +812,9 @@ int main(int argc, char *argv[])
 	m_swapChain = CreateSwapChain(
 		m_GPUs[0], m_surface, m_colorImgFormat, width, height, m_device,
 		m_swapChainImageCount, m_swapChainImgBuffer, m_cmdBuffer, m_queue, m_queueFamilyIndex);
+
+	//Create DepthBuffer
+	m_depthMap = CreateDepthMap(m_GPUs[0], m_device, width, height, m_memoryProperties, m_cmdBuffer, m_queue);
 
 	//todo...
 }
