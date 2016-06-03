@@ -106,7 +106,7 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>G:\VulkanSDK\1.0.13.0\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>G:\VulkanSDK\1.0.13.0\Include;C:\Vulkan\VulkanSamples-master\VulkanSamples-master\include;.\1-ColoredCube\glm;C:\Repos\vulkanVoxelTest\testProjects\1-ColoredCube\1-ColoredCube\glm;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
