@@ -34,12 +34,11 @@
 #include <vulkan/vulkan.h>
 #include <vulkan/vk_sdk_platform.h>
 
-//#include "GlslangToSpv.h"
+#include "SPIRV/GlslangToSpv.h"
 
 #include <Windows.h>
 
 using namespace std;
-using namespace glm;
 
 /*
 	Structs
@@ -67,6 +66,7 @@ typedef struct _uniform {
 	VkBuffer buf;
 	VkDeviceMemory mem;
 	VkDescriptorBufferInfo buffer_info;
+	VkMemoryRequirements mem_reqs;
 } UniformBuffer;
 
 typedef struct _vb {
@@ -201,22 +201,21 @@ vector<VkDescriptorSet> m_descSet;
 VkViewport m_viewport;
 VkRect2D m_scissor;
 
+bool m_prepared;
+
 ///win32
 HINSTANCE m_connection;
 HWND m_window;
 
 ///const
 const int fenceTimeout = 100000000;
-const int width = 800;
-const int height = 600;
+const int width = 768;
+const int height = 768;
 
 /*
 	Win32 window
 */
-static void run()
-{
-	/* Placeholder for samples that want to show dynamic content */
-}
+static void run();
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -224,9 +223,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	case WM_CLOSE:
 		PostQuitMessage(0);
 		break;
+	case WM_MOVE:
+	case WM_MOVING:
 	case WM_PAINT:
 		run();
 		return 0;
+	case WM_ERASEBKGND:
+		return 0; //This one is really hacking lol (may lead to some issue but who cares lol)
 	default:
 		break;
 	}
@@ -293,6 +296,165 @@ void InitWindow(int width, int height, string windowTitle)
 /*
 	ToolBoxes
 */
+
+void initResources(TBuiltInResource &Resources) {
+	Resources.maxLights = 32;
+	Resources.maxClipPlanes = 6;
+	Resources.maxTextureUnits = 32;
+	Resources.maxTextureCoords = 32;
+	Resources.maxVertexAttribs = 64;
+	Resources.maxVertexUniformComponents = 4096;
+	Resources.maxVaryingFloats = 64;
+	Resources.maxVertexTextureImageUnits = 32;
+	Resources.maxCombinedTextureImageUnits = 80;
+	Resources.maxTextureImageUnits = 32;
+	Resources.maxFragmentUniformComponents = 4096;
+	Resources.maxDrawBuffers = 32;
+	Resources.maxVertexUniformVectors = 128;
+	Resources.maxVaryingVectors = 8;
+	Resources.maxFragmentUniformVectors = 16;
+	Resources.maxVertexOutputVectors = 16;
+	Resources.maxFragmentInputVectors = 15;
+	Resources.minProgramTexelOffset = -8;
+	Resources.maxProgramTexelOffset = 7;
+	Resources.maxClipDistances = 8;
+	Resources.maxComputeWorkGroupCountX = 65535;
+	Resources.maxComputeWorkGroupCountY = 65535;
+	Resources.maxComputeWorkGroupCountZ = 65535;
+	Resources.maxComputeWorkGroupSizeX = 1024;
+	Resources.maxComputeWorkGroupSizeY = 1024;
+	Resources.maxComputeWorkGroupSizeZ = 64;
+	Resources.maxComputeUniformComponents = 1024;
+	Resources.maxComputeTextureImageUnits = 16;
+	Resources.maxComputeImageUniforms = 8;
+	Resources.maxComputeAtomicCounters = 8;
+	Resources.maxComputeAtomicCounterBuffers = 1;
+	Resources.maxVaryingComponents = 60;
+	Resources.maxVertexOutputComponents = 64;
+	Resources.maxGeometryInputComponents = 64;
+	Resources.maxGeometryOutputComponents = 128;
+	Resources.maxFragmentInputComponents = 128;
+	Resources.maxImageUnits = 8;
+	Resources.maxCombinedImageUnitsAndFragmentOutputs = 8;
+	Resources.maxCombinedShaderOutputResources = 8;
+	Resources.maxImageSamples = 0;
+	Resources.maxVertexImageUniforms = 0;
+	Resources.maxTessControlImageUniforms = 0;
+	Resources.maxTessEvaluationImageUniforms = 0;
+	Resources.maxGeometryImageUniforms = 0;
+	Resources.maxFragmentImageUniforms = 8;
+	Resources.maxCombinedImageUniforms = 8;
+	Resources.maxGeometryTextureImageUnits = 16;
+	Resources.maxGeometryOutputVertices = 256;
+	Resources.maxGeometryTotalOutputComponents = 1024;
+	Resources.maxGeometryUniformComponents = 1024;
+	Resources.maxGeometryVaryingComponents = 64;
+	Resources.maxTessControlInputComponents = 128;
+	Resources.maxTessControlOutputComponents = 128;
+	Resources.maxTessControlTextureImageUnits = 16;
+	Resources.maxTessControlUniformComponents = 1024;
+	Resources.maxTessControlTotalOutputComponents = 4096;
+	Resources.maxTessEvaluationInputComponents = 128;
+	Resources.maxTessEvaluationOutputComponents = 128;
+	Resources.maxTessEvaluationTextureImageUnits = 16;
+	Resources.maxTessEvaluationUniformComponents = 1024;
+	Resources.maxTessPatchComponents = 120;
+	Resources.maxPatchVertices = 32;
+	Resources.maxTessGenLevel = 64;
+	Resources.maxViewports = 16;
+	Resources.maxVertexAtomicCounters = 0;
+	Resources.maxTessControlAtomicCounters = 0;
+	Resources.maxTessEvaluationAtomicCounters = 0;
+	Resources.maxGeometryAtomicCounters = 0;
+	Resources.maxFragmentAtomicCounters = 8;
+	Resources.maxCombinedAtomicCounters = 8;
+	Resources.maxAtomicCounterBindings = 1;
+	Resources.maxVertexAtomicCounterBuffers = 0;
+	Resources.maxTessControlAtomicCounterBuffers = 0;
+	Resources.maxTessEvaluationAtomicCounterBuffers = 0;
+	Resources.maxGeometryAtomicCounterBuffers = 0;
+	Resources.maxFragmentAtomicCounterBuffers = 1;
+	Resources.maxCombinedAtomicCounterBuffers = 1;
+	Resources.maxAtomicCounterBufferSize = 16384;
+	Resources.maxTransformFeedbackBuffers = 4;
+	Resources.maxTransformFeedbackInterleavedComponents = 64;
+	Resources.maxCullDistances = 8;
+	Resources.maxCombinedClipAndCullDistances = 8;
+	Resources.maxSamples = 4;
+	Resources.limits.nonInductiveForLoops = 1;
+	Resources.limits.whileLoops = 1;
+	Resources.limits.doWhileLoops = 1;
+	Resources.limits.generalUniformIndexing = 1;
+	Resources.limits.generalAttributeMatrixVectorIndexing = 1;
+	Resources.limits.generalVaryingIndexing = 1;
+	Resources.limits.generalSamplerIndexing = 1;
+	Resources.limits.generalVariableIndexing = 1;
+	Resources.limits.generalConstantMatrixVectorIndexing = 1;
+}
+
+EShLanguage FindLanguage(const VkShaderStageFlagBits shader_type) {
+	switch (shader_type) {
+	case VK_SHADER_STAGE_VERTEX_BIT:
+		return EShLangVertex;
+
+	case VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT:
+		return EShLangTessControl;
+
+	case VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT:
+		return EShLangTessEvaluation;
+
+	case VK_SHADER_STAGE_GEOMETRY_BIT:
+		return EShLangGeometry;
+
+	case VK_SHADER_STAGE_FRAGMENT_BIT:
+		return EShLangFragment;
+
+	case VK_SHADER_STAGE_COMPUTE_BIT:
+		return EShLangCompute;
+
+	default:
+		return EShLangVertex;
+	}
+}
+
+bool GLSLtoSPV(const VkShaderStageFlagBits shader_type, const char *pshader,
+	std::vector<unsigned int> &spirv) {
+
+	EShLanguage stage = FindLanguage(shader_type);
+	glslang::TShader shader(stage);
+	glslang::TProgram program;
+	const char *shaderStrings[1];
+	TBuiltInResource Resources;
+	initResources(Resources);
+
+	// Enable SPIR-V and Vulkan rules when parsing GLSL
+	EShMessages messages = (EShMessages)(EShMsgSpvRules | EShMsgVulkanRules);
+
+	shaderStrings[0] = pshader;
+	shader.setStrings(shaderStrings, 1);
+
+	if (!shader.parse(&Resources, 100, false, messages)) {
+		puts(shader.getInfoLog());
+		puts(shader.getInfoDebugLog());
+		return false; // something didn't work
+	}
+
+	program.addShader(&shader);
+
+	//
+	// Program-level processing...
+	//
+
+	if (!program.link(messages)) {
+		puts(shader.getInfoLog());
+		puts(shader.getInfoDebugLog());
+		fflush(stdout);
+		return false;
+	}
+
+	glslang::GlslangToSpv(*program.getIntermediate(stage), spirv);
+	return true;
+}
 
 void BeginCommandBuffer(VkCommandBuffer &cmdBuf)
 {
@@ -527,15 +689,26 @@ VkDevice CreateDevice(
 	queue_info.queueCount = 1;
 	queue_info.pQueuePriorities = queue_priorities;
 
+	vector<char*> enabledDeviceExtensions;
+	enabledDeviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+#ifdef VALIDATE_VULKAN
+	enabledInstanceExtensions.push_back("VK_EXT_debug_report");
+#endif
+
+	vector<char*> enabledDeviceLayers;
+#ifdef VALIDATE_VULKAN
+	enabledInstanceLayers.push_back("VK_LAYER_LUNARG_standard_validation");
+#endif
+
 	VkDeviceCreateInfo device_info = {};
 	device_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 	device_info.pNext = NULL;
 	device_info.queueCreateInfoCount = 1;
 	device_info.pQueueCreateInfos = &queue_info;
-	device_info.enabledExtensionCount = 0;
-	device_info.ppEnabledExtensionNames = NULL;
-	device_info.enabledLayerCount = 0;
-	device_info.ppEnabledLayerNames = NULL;
+	device_info.enabledExtensionCount = (uint32_t)enabledDeviceExtensions.size();
+	device_info.ppEnabledExtensionNames = enabledDeviceExtensions.data();
+	device_info.enabledLayerCount = (uint32_t)enabledDeviceLayers.size();
+	device_info.ppEnabledLayerNames = enabledDeviceLayers.data();
 	device_info.pEnabledFeatures = NULL;
 
 	VkDevice device;
@@ -749,7 +922,7 @@ VkSwapchainKHR CreateSwapChain(
 	swap_chain.oldSwapchain = NULL;
 	swap_chain.clipped = true;
 	swap_chain.imageColorSpace = VK_COLORSPACE_SRGB_NONLINEAR_KHR;
-	swap_chain.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+	swap_chain.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 	swap_chain.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	swap_chain.queueFamilyIndexCount = 0;
 	swap_chain.pQueueFamilyIndices = NULL;
@@ -935,6 +1108,8 @@ UniformBuffer CreateUniformBuffer(
 	vkGetBufferMemoryRequirements(device, uniform_data.buf,
 		&mem_reqs);
 
+	uniform_data.mem_reqs = mem_reqs;
+
 	VkMemoryAllocateInfo alloc_info = {};
 	alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	alloc_info.pNext = NULL;
@@ -1023,7 +1198,7 @@ VkRenderPass CreateRenderPass(
 	VkAttachmentDescription attachments[2];
 	attachments[0].format = imgFormat;
 	attachments[0].samples = NUM_SAMPLES;
-	attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 		//clear ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 	attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 	attachments[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
@@ -1035,7 +1210,7 @@ VkRenderPass CreateRenderPass(
 
 	attachments[1].format = depth.format;
 	attachments[1].samples = NUM_SAMPLES;
-	attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 		//clear ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 	attachments[1].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 	attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
@@ -1144,7 +1319,7 @@ void InitShaderStageCreateInfo(
 		assert(res == VK_SUCCESS);
 	}
 
-	finalize_glslang();
+	glslang::FinalizeProcess();
 }
 
 VkFramebuffer* CreateFrameBuffers(
@@ -1494,87 +1669,18 @@ void initScissors(int width, int height, VkCommandBuffer cmdBuf, VkRect2D &sciss
 	vkCmdSetScissor(cmdBuf, 0, NUM_SCISSORS, &scissor);
 }
 
-/*
-	Main
-*/
-
-int main(int argc, char *argv[])
+void render()
 {
-	InitWindow(width, height, "ColoredCube");
-
-	//Create Instance
-	m_instance = CreateInstance("Colored Cube");
-
-	//Enumerate & Create device
-	EnumeratePhysicalDevices(m_instance, m_GPUs, m_memoryProperties, m_GPUProperties);
-	m_device = CreateDevice(m_GPUs, m_queueCount, m_queueProps, m_queueFamilyIndex);
-
-	//Init command buffer
-	m_cmdPool = CreateCommandPool(m_queueFamilyIndex, m_device);
-	m_cmdBuffer = CreateCommandBuffer(m_cmdPool, m_device);
-
 	BeginCommandBuffer(m_cmdBuffer);
-
-	//Init swapChain
-	m_surface = GetSurface(m_connection, m_window, m_instance);
-	m_queueGraphicsPresentIndex = GetGraphicsPresentQueueIndex(m_queueCount, m_GPUs[0], m_queueProps, m_surface);
-	m_swapChain = CreateSwapChain(
-		m_GPUs[0], m_surface, m_colorImgFormat, width, height, m_device,
-		m_swapChainImageCount, m_swapChainImgBuffer, m_cmdBuffer, m_queue, m_queueFamilyIndex);
-
-	//Create DepthBuffer
-	m_depthMap = CreateDepthMap(m_GPUs[0], m_device, width, height, m_memoryProperties, m_cmdBuffer, m_queue);
-
-	//Create UniformBuffer
-	mat4 Projection = glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 100.0f);
-	mat4 View = glm::lookAt(
-		glm::vec3(0, 3, 10), // Camera is at (0,3,10), in World Space
-		glm::vec3(0, 0, 0),  // and looks at the origin
-		glm::vec3(0, -1, 0)  // Head is up (set to 0,-1,0 to look upside-down)
-		);
-	mat4 Model = glm::mat4(1.0f);
-	// Vulkan clip space has inverted Y and half Z.
-	mat4 Clip = glm::mat4(1.0f, 0.0f, 0.0f, 0.0f,
-		0.0f, -1.0f, 0.0f, 0.0f,
-		0.0f, 0.0f, 0.5f, 0.0f,
-		0.0f, 0.0f, 0.5f, 1.0f);
-
-	mat4 MVP = Clip * Projection * View * Model;
-
-	m_uniform = CreateUniformBuffer(&MVP, sizeof(MVP), m_device, m_memoryProperties);
-
-	//Descriptor & pipeline Layout
-	InitDescriptorPipelineLayout(m_descLayout, m_pipelineLayout, m_device);
-
-	//RenderPass
-	m_renderPass = CreateRenderPass(m_colorImgFormat, m_depthMap, m_device);
-
-	//Shader. glsl to SPIR-V by glslang.
-	InitShaderStageCreateInfo(vertShader, fragShader, m_shaderStages[0], m_shaderStages[1], m_device);
-
-	//Create frame buffers
-	m_framebuffers = CreateFrameBuffers(m_device, m_depthMap, m_swapChainImgBuffer.data(), m_renderPass, width, height, m_swapChainImageCount);
-
-	//Vertex buffer
-	m_vertexBuffer = CreateVertexBuffer(
-		m_device, m_memoryProperties, &g_vb_solid_face_colors_Data,
-		sizeof(g_vb_solid_face_colors_Data), sizeof(g_vb_solid_face_colors_Data[0]), m_viBinding, m_viAttribs);
-
-	//Desc pool & set
-	m_descPool = CreateDescriptorPool(m_device);
-	CreateDescriptorSet(m_device, m_descPool, m_descLayout, m_descSet, m_uniform);
-
-	//Pipeline
-	CreatePipeline(m_device, m_pipelineCache, m_pipeline, m_viBinding, m_viAttribs, m_pipelineLayout, m_shaderStages, m_renderPass);
 
 	//DrawCube!
 	VkResult res;
 
 	VkClearValue clear_values[2];
-	clear_values[0].color.float32[0] = 0.2f;
-	clear_values[0].color.float32[1] = 0.2f;
-	clear_values[0].color.float32[2] = 0.2f;
-	clear_values[0].color.float32[3] = 0.2f;
+	clear_values[0].color.float32[0] = 0.1f;
+	clear_values[0].color.float32[1] = 0.1f;
+	clear_values[0].color.float32[2] = 0.1f;
+	clear_values[0].color.float32[3] = 1.0f;
 	clear_values[1].depthStencil.depth = 1.0f;
 	clear_values[1].depthStencil.stencil = 0;
 
@@ -1620,9 +1726,9 @@ int main(int argc, char *argv[])
 		m_pipelineLayout, 0, NUM_DESCRIPTOR_SETS,
 		m_descSet.data(), 0, NULL);
 
-	const VkDeviceSize offsets[1] = { 0 };
-	vkCmdBindVertexBuffers(m_cmdBuffer, 0, 1, &m_vertexBuffer.buf, offsets);
-
+	//const VkDeviceSize offsets[1] = { 0 };
+	//vkCmdBindVertexBuffers(m_cmdBuffer, 0, 1, &m_vertexBuffer.buf, offsets);
+	
 	initViewports(width, height, m_cmdBuffer, m_viewport);
 	initScissors(width, height, m_cmdBuffer, m_scissor);
 
@@ -1695,6 +1801,214 @@ int main(int argc, char *argv[])
 	assert(res == VK_SUCCESS);
 	res = vkQueuePresentKHR(m_queue, &present);
 	assert(res == VK_SUCCESS);
+}
 
-	//todo: destroy & cleanning
+void update()
+{
+	static int frame = 0;
+
+	double fac = (double)frame / 600.0f;
+
+	glm::mat4 Projection = glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 100.0f);
+	glm::mat4 View = glm::lookAt(
+		glm::vec3(10 * glm::sin(fac), 6 * glm::cos(fac / 2.5), 10 * glm::cos(fac)), // Camera is at (0,3,10), in World Space
+		glm::vec3(0, 0, 0),  // and looks at the origin
+		glm::vec3(0, -1, 0)  // Head is up (set to 0,-1,0 to look upside-down)
+		);
+	glm::mat4 Model = glm::mat4(1.0f);
+	// Vulkan clip space has inverted Y and half Z.
+	glm::mat4 Clip = glm::mat4(1.0f, 0.0f, 0.0f, 0.0f,
+		0.0f, -1.0f, 0.0f, 0.0f,
+		0.0f, 0.0f, 0.5f, 0.0f,
+		0.0f, 0.0f, 0.5f, 1.0f);
+
+	glm::mat4 MVP = Clip * Projection * View * Model;
+
+	uint8_t *pData;
+	VkResult res = vkMapMemory(m_device, m_uniform.mem, 0, m_uniform.mem_reqs.size, 0, (void **)&pData);
+	assert(res == VK_SUCCESS);
+
+	memcpy(pData, (const void*)&MVP, sizeof(MVP));
+
+	vkUnmapMemory(m_device, m_uniform.mem);
+
+	frame++;
+	return;
+}
+
+static void run()
+{
+	if (!m_prepared) return;
+
+	vkDeviceWaitIdle(m_device);
+	
+	update();
+	render();
+
+	vkDeviceWaitIdle(m_device);
+}
+
+/*
+	Main
+*/
+
+int main(int argc, char *argv[])
+{
+	InitWindow(width, height, "ColoredCube");
+
+	//Create Instance
+	m_instance = CreateInstance("Colored Cube");
+
+	//Enumerate & Create device
+	EnumeratePhysicalDevices(m_instance, m_GPUs, m_memoryProperties, m_GPUProperties);
+	m_device = CreateDevice(m_GPUs, m_queueCount, m_queueProps, m_queueFamilyIndex);
+
+	//Init command buffer
+	m_cmdPool = CreateCommandPool(m_queueFamilyIndex, m_device);
+	m_cmdBuffer = CreateCommandBuffer(m_cmdPool, m_device);
+
+	BeginCommandBuffer(m_cmdBuffer);
+
+	//Init swapChain
+	m_surface = GetSurface(m_connection, m_window, m_instance);
+	m_queueGraphicsPresentIndex = GetGraphicsPresentQueueIndex(m_queueCount, m_GPUs[0], m_queueProps, m_surface);
+	m_swapChain = CreateSwapChain(
+		m_GPUs[0], m_surface, m_colorImgFormat, width, height, m_device,
+		m_swapChainImageCount, m_swapChainImgBuffer, m_cmdBuffer, m_queue, m_queueFamilyIndex);
+
+	//Create DepthBuffer
+	m_depthMap = CreateDepthMap(m_GPUs[0], m_device, width, height, m_memoryProperties, m_cmdBuffer, m_queue);
+
+	//Create UniformBuffer
+	glm::mat4 Projection = glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 100.0f);
+	glm::mat4 View = glm::lookAt(
+		glm::vec3(0, 3, 10), // Camera is at (0,3,10), in World Space
+		glm::vec3(0, 0, 0),  // and looks at the origin
+		glm::vec3(0, -1, 0)  // Head is up (set to 0,-1,0 to look upside-down)
+		);
+	glm::mat4 Model = glm::mat4(1.0f);
+	// Vulkan clip space has inverted Y and half Z.
+	glm::mat4 Clip = glm::mat4(1.0f, 0.0f, 0.0f, 0.0f,
+		0.0f, -1.0f, 0.0f, 0.0f,
+		0.0f, 0.0f, 0.5f, 0.0f,
+		0.0f, 0.0f, 0.5f, 1.0f);
+
+	glm::mat4 MVP = Clip * Projection * View * Model;
+
+	m_uniform = CreateUniformBuffer(&MVP, sizeof(MVP), m_device, m_memoryProperties);
+
+	//Descriptor & pipeline Layout
+	InitDescriptorPipelineLayout(m_descLayout, m_pipelineLayout, m_device);
+
+	//RenderPass
+	m_renderPass = CreateRenderPass(m_colorImgFormat, m_depthMap, m_device);
+
+	//Shader. glsl to SPIR-V by glslang.
+	InitShaderStageCreateInfo(vertShader, fragShader, m_shaderStages[0], m_shaderStages[1], m_device);
+
+	//Create frame buffers
+	m_framebuffers = CreateFrameBuffers(m_device, m_depthMap, m_swapChainImgBuffer.data(), m_renderPass, width, height, m_swapChainImageCount);
+
+	//Vertex buffer
+	m_vertexBuffer = CreateVertexBuffer(
+		m_device, m_memoryProperties, &g_vb_solid_face_colors_Data,
+		sizeof(g_vb_solid_face_colors_Data), sizeof(g_vb_solid_face_colors_Data[0]), m_viBinding, m_viAttribs);
+
+	//Desc pool & set
+	m_descPool = CreateDescriptorPool(m_device);
+	CreateDescriptorSet(m_device, m_descPool, m_descLayout, m_descSet, m_uniform);
+
+	//Pipeline
+	CreatePipeline(m_device, m_pipelineCache, m_pipeline, m_viBinding, m_viAttribs, m_pipelineLayout, m_shaderStages, m_renderPass);
+
+	/**/vkCmdBindPipeline(m_cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
+	/**/vkCmdBindDescriptorSets(m_cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+		m_pipelineLayout, 0, NUM_DESCRIPTOR_SETS,
+		m_descSet.data(), 0, NULL);
+
+	/**/const VkDeviceSize offsets[1] = { 0 };
+	/**/vkCmdBindVertexBuffers(m_cmdBuffer, 0, 1, &m_vertexBuffer.buf, offsets);
+
+	/**/initViewports(width, height, m_cmdBuffer, m_viewport);
+	/**/initScissors(width, height, m_cmdBuffer, m_scissor);
+
+	//Finish init
+	EndCommandBuffer(m_cmdBuffer);
+	QueueCommandBuffer(m_cmdBuffer, m_device, m_queue);
+
+	m_prepared = true;
+
+	MSG msg;
+
+	bool done = false;
+	while (!done)
+	{
+		PeekMessage(&msg, NULL, 0, 0, PM_REMOVE);
+		if (msg.message == WM_QUIT) // check for a quit message
+		{
+			done = true; // if found, quit app
+		}
+		else {
+			/* Translate and dispatch to event queue*/
+			TranslateMessage(&msg);
+			DispatchMessage(&msg);
+		}
+		RedrawWindow(m_window, NULL, NULL, RDW_INTERNALPAINT);
+	}
+
+	//cleanUp
+	uint32_t i;
+
+	m_prepared = false;
+
+	for (i = 0;i < m_swapChainImageCount;i++)
+	{
+		vkDestroyFramebuffer(m_device, m_framebuffers[i], NULL);
+	}
+	free(m_framebuffers);
+
+	vkDestroyDescriptorPool(m_device, m_descPool, NULL);
+
+	vkDestroyPipeline(m_device, m_pipeline, NULL);
+	vkDestroyPipelineCache(m_device, m_pipelineCache, NULL);
+	vkDestroyRenderPass(m_device, m_renderPass, NULL);
+	vkDestroyPipelineLayout(m_device, m_pipelineLayout, NULL);
+
+	for (i = 0;i < m_descLayout.size();i++)
+	{
+		vkDestroyDescriptorSetLayout(m_device, m_descLayout[i], NULL);
+	}
+
+	/*
+		for (i = 0; i < DEMO_TEXTURE_COUNT; i++) {
+		vkDestroyImageView(m_device, demo->textures[i].view, NULL);
+		vkDestroyImage(m_device, demo->textures[i].image, NULL);
+		vkFreeMemory(m_device, demo->textures[i].mem, NULL);
+		vkDestroySampler(m_device, demo->textures[i].sampler, NULL);
+		}
+	*/
+	vkDestroySwapchainKHR(m_device, m_swapChain, NULL);
+
+	vkDestroyImageView(m_device, m_depthMap.view, NULL);
+	vkDestroyImage(m_device, m_depthMap.image, NULL);
+	vkFreeMemory(m_device, m_depthMap.memory, NULL);
+
+	vkDestroyBuffer(m_device, m_uniform.buf, NULL);
+	vkFreeMemory(m_device, m_uniform.mem, NULL);
+
+	for (i = 0; i < m_swapChainImageCount; i++) {
+		vkDestroyImageView(m_device, m_swapChainImgBuffer[i].view, NULL);
+	}
+	vkFreeCommandBuffers(m_device, m_cmdPool, 1,
+		&m_cmdBuffer);
+
+	m_swapChainImgBuffer.clear();
+
+	m_queueProps.clear();
+
+	vkDestroyCommandPool(m_device, m_cmdPool, NULL);
+	vkDestroyDevice(m_device, NULL);
+
+	vkDestroySurfaceKHR(m_instance, m_surface, NULL);
+	vkDestroyInstance(m_instance, NULL);
 }
