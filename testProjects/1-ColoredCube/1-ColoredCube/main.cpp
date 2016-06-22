@@ -20,6 +20,8 @@
 #define NUM_VIEWPORTS 1
 #define NUM_SCISSORS NUM_VIEWPORTS
 
+#define LENGTH 127
+
 #define XYZ1(_x_, _y_, _z_) (_x_), (_y_), (_z_), 1.f
 
 #define GLM_FORCE_RADIANS
@@ -73,7 +75,15 @@ typedef struct _vb {
 	VkBuffer buf;
 	VkDeviceMemory mem;
 	VkDescriptorBufferInfo buffer_info;
+	VkMemoryRequirements mem_reqs;
 } VertexBuffer;
+
+typedef struct _ib {
+	VkBuffer buf;
+	VkDeviceMemory mem;
+	VkDescriptorBufferInfo buffer_info;
+	VkMemoryRequirements mem_reqs;
+} IndexBuffer;
 
 
 /*
@@ -124,6 +134,11 @@ static const Vertex g_vb_solid_face_colors_Data[] = {
 	{ XYZ1(-1, -1, -1), XYZ1(0.f, 1.f, 1.f) },
 };
 
+bool useWireframe = true;
+
+static Vertex surfaceData[(LENGTH + 1) * (LENGTH + 1)];
+static uint32_t indexData[(LENGTH * LENGTH) * 6];
+
 static const char *vertShader =
 "#version 400\n"
 "#extension GL_ARB_separate_shader_objects : enable\n"
@@ -134,11 +149,13 @@ static const char *vertShader =
 "layout (location = 0) in vec4 pos;\n"
 "layout (location = 1) in vec4 inColor;\n"
 "layout (location = 0) out vec4 outColor;\n"
+"layout (location = 1) out vec3 position;\n"
 "out gl_PerVertex { \n"
 "    vec4 gl_Position;\n"
 "};\n"
 "void main() {\n"
 "   outColor = inColor;\n"
+"	position = (myBufferVals.mvp * pos).xyz;\n"
 "   gl_Position = myBufferVals.mvp * pos;\n"
 "}\n";
 
@@ -147,8 +164,13 @@ static const char *fragShader =
 "#extension GL_ARB_separate_shader_objects : enable\n"
 "#extension GL_ARB_shading_language_420pack : enable\n"
 "layout (location = 0) in vec4 color;\n"
+"layout (location = 1) in vec3 position;\n"
 "layout (location = 0) out vec4 outColor;\n"
 "void main() {\n"
+"	vec3 lightPos = vec3(1, 1, 0);\n"
+"	vec3 camPos = vec3(0, 3, 10);\n"
+"	vec3 toCam = camPos - position;\n"
+"   //outColor = dot(lightPos, toCam) * color * 0.3 + color * 0.7;\n"
 "   outColor = color;\n"
 "}\n";
 
@@ -192,6 +214,7 @@ VkPipelineShaderStageCreateInfo m_shaderStages[2];
 VkFramebuffer *m_framebuffers;
 
 VertexBuffer m_vertexBuffer;
+IndexBuffer m_indexBuffer;
 VkVertexInputBindingDescription m_viBinding;
 VkVertexInputAttributeDescription m_viAttribs[2];
 
@@ -1385,6 +1408,8 @@ VertexBuffer CreateVertexBuffer(
 	vkGetBufferMemoryRequirements(device, vertex_buffer.buf,
 		&mem_reqs);
 
+	vertex_buffer.mem_reqs = mem_reqs;
+
 	VkMemoryAllocateInfo alloc_info = {};
 	alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	alloc_info.pNext = NULL;
@@ -1430,6 +1455,67 @@ VertexBuffer CreateVertexBuffer(
 	vi_attribs[1].offset = 4 * sizeof(float);
 
 	return vertex_buffer;
+}
+
+IndexBuffer CreateIndexBuffer(
+	VkDevice device, VkPhysicalDeviceMemoryProperties memoryProp,
+	const void *vertexData, uint32_t dataSize, uint32_t dataStride)
+{
+	IndexBuffer index_buffer;
+
+	VkResult res;
+	bool pass;
+
+	VkBufferCreateInfo buf_info = {};
+	buf_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	buf_info.pNext = NULL;
+	buf_info.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+	buf_info.size = dataSize;
+	buf_info.queueFamilyIndexCount = 0;
+	buf_info.pQueueFamilyIndices = NULL;
+	buf_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	buf_info.flags = 0;
+	res = vkCreateBuffer(device, &buf_info, NULL, &index_buffer.buf);
+	assert(res == VK_SUCCESS);
+
+	VkMemoryRequirements mem_reqs;
+	vkGetBufferMemoryRequirements(device, index_buffer.buf,
+		&mem_reqs);
+
+	index_buffer.mem_reqs = mem_reqs;
+
+	VkMemoryAllocateInfo alloc_info = {};
+	alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	alloc_info.pNext = NULL;
+	alloc_info.memoryTypeIndex = 0;
+
+	alloc_info.allocationSize = mem_reqs.size;
+	pass = MemoryTypeFromProperties(memoryProp, mem_reqs.memoryTypeBits,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+		VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		&alloc_info.memoryTypeIndex);
+	assert(pass && "No mappable, coherent memory");
+
+	res = vkAllocateMemory(device, &alloc_info, NULL,
+		&(index_buffer.mem));
+	assert(res == VK_SUCCESS);
+	index_buffer.buffer_info.range = mem_reqs.size;
+	index_buffer.buffer_info.offset = 0;
+
+	uint8_t *pData;
+	res = vkMapMemory(device, index_buffer.mem, 0, mem_reqs.size, 0,
+		(void **)&pData);
+	assert(res == VK_SUCCESS);
+
+	memcpy(pData, vertexData, dataSize);
+
+	vkUnmapMemory(device, index_buffer.mem);
+
+	res = vkBindBufferMemory(device, index_buffer.buf,
+		index_buffer.mem, 0);
+	assert(res == VK_SUCCESS);
+
+	return index_buffer;
 }
 
 VkDescriptorPool CreateDescriptorPool(VkDevice device)
@@ -1539,8 +1625,8 @@ void CreatePipeline(
 	rs.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
 	rs.pNext = NULL;
 	rs.flags = 0;
-	rs.polygonMode = VK_POLYGON_MODE_FILL;
-	rs.cullMode = VK_CULL_MODE_BACK_BIT;
+	rs.polygonMode = useWireframe ? VK_POLYGON_MODE_LINE : VK_POLYGON_MODE_FILL;
+	rs.cullMode = VK_CULL_MODE_NONE;
 	rs.frontFace = VK_FRONT_FACE_CLOCKWISE;
 	rs.depthClampEnable = VK_TRUE;
 	rs.rasterizerDiscardEnable = VK_FALSE;
@@ -1732,7 +1818,9 @@ void render()
 	initViewports(width, height, m_cmdBuffer, m_viewport);
 	initScissors(width, height, m_cmdBuffer, m_scissor);
 
-	vkCmdDraw(m_cmdBuffer, 12 * 3, 1, 0, 0);
+	//vkCmdDraw(m_cmdBuffer, 12 * 3, 1, 0, 0);
+	vkCmdDrawIndexed(m_cmdBuffer, (LENGTH * LENGTH) * 6, 1, 0, 0, 0);
+
 	vkCmdEndRenderPass(m_cmdBuffer);
 
 	VkImageMemoryBarrier prePresentBarrier = {};
@@ -1803,34 +1891,83 @@ void render()
 	assert(res == VK_SUCCESS);
 }
 
+void GenerateNewBuffers(int frame)
+{
+	int i, j;
+	for (i = 0;i < (LENGTH+1); i++)
+	{
+		for (j = 0;j < (LENGTH+1);j++)
+		{
+			surfaceData[i * (LENGTH + 1) + j] = { XYZ1((float)i / (LENGTH) * 5, (float)sin((float)i / (LENGTH) * 15 + (float)frame / 200.0), (float)j / (LENGTH) * 5), XYZ1(1.f, 1.f, 1.f) };
+		}
+	}
+
+	for (i = 0;i < LENGTH;i++)
+	{
+		for (j = 0;j < LENGTH;j++)
+		{
+
+			/*
+
+			2*(l+1)		2*(l+1)+1	...
+			l+1			l+1+1		...
+			0			1			...
+
+			*/
+
+			indexData[(i*LENGTH + j) * 6 + 0] = (i + 0) * (LENGTH + 1) + (j + 0);
+			indexData[(i*LENGTH + j) * 6 + 1] = (i + 1) * (LENGTH + 1) + (j + 0);
+			indexData[(i*LENGTH + j) * 6 + 2] = (i + 1) * (LENGTH + 1) + (j + 1);
+
+			indexData[(i*LENGTH + j) * 6 + 3] = (i + 0) * (LENGTH + 1) + (j + 0);
+			indexData[(i*LENGTH + j) * 6 + 4] = (i + 1) * (LENGTH + 1) + (j + 1);
+			indexData[(i*LENGTH + j) * 6 + 5] = (i + 0) * (LENGTH + 1) + (j + 1);
+		}
+	}
+}
+
 void update()
 {
 	static int frame = 0;
 
-	double fac = (double)frame / 600.0f;
+	//double fac = (double)frame / 600.0f;
 
-	glm::mat4 Projection = glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 100.0f);
-	glm::mat4 View = glm::lookAt(
-		glm::vec3(10 * glm::sin(fac), 6 * glm::cos(fac / 2.5), 10 * glm::cos(fac)), // Camera is at (0,3,10), in World Space
-		glm::vec3(0, 0, 0),  // and looks at the origin
-		glm::vec3(0, -1, 0)  // Head is up (set to 0,-1,0 to look upside-down)
-		);
-	glm::mat4 Model = glm::mat4(1.0f);
-	// Vulkan clip space has inverted Y and half Z.
-	glm::mat4 Clip = glm::mat4(1.0f, 0.0f, 0.0f, 0.0f,
-		0.0f, -1.0f, 0.0f, 0.0f,
-		0.0f, 0.0f, 0.5f, 0.0f,
-		0.0f, 0.0f, 0.5f, 1.0f);
+	//glm::mat4 Projection = glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 100.0f);
+	//glm::mat4 View = glm::lookAt(
+	//	glm::vec3(10 * glm::sin(fac), 6 * glm::cos(fac / 2.5), 10 * glm::cos(fac)), // Camera is at (0,3,10), in World Space
+	//	glm::vec3(0, 0, 0),  // and looks at the origin
+	//	glm::vec3(0, -1, 0)  // Head is up (set to 0,-1,0 to look upside-down)
+	//	);
+	//glm::mat4 Model = glm::mat4(1.0f);
+	//// Vulkan clip space has inverted Y and half Z.
+	//glm::mat4 Clip = glm::mat4(1.0f, 0.0f, 0.0f, 0.0f,
+	//	0.0f, -1.0f, 0.0f, 0.0f,
+	//	0.0f, 0.0f, 0.5f, 0.0f,
+	//	0.0f, 0.0f, 0.5f, 1.0f);
 
-	glm::mat4 MVP = Clip * Projection * View * Model;
+	//glm::mat4 MVP = Clip * Projection * View * Model;
+
+	//uint8_t *pData;
+	//VkResult res = vkMapMemory(m_device, m_uniform.mem, 0, m_uniform.mem_reqs.size, 0, (void **)&pData);
+	//assert(res == VK_SUCCESS);
+
+	//memcpy(pData, (const void*)&MVP, sizeof(MVP));
+
+	//vkUnmapMemory(m_device, m_uniform.mem);
+
+	//GenerateNewBuffers(frame);
 
 	uint8_t *pData;
-	VkResult res = vkMapMemory(m_device, m_uniform.mem, 0, m_uniform.mem_reqs.size, 0, (void **)&pData);
+
+	VkResult res = vkMapMemory(m_device, m_vertexBuffer.mem, 0, m_vertexBuffer.mem_reqs.size, 0,
+		(void **)&pData);
 	assert(res == VK_SUCCESS);
 
-	memcpy(pData, (const void*)&MVP, sizeof(MVP));
+	memcpy(pData, (const void*)&surfaceData, sizeof(surfaceData));
 
-	vkUnmapMemory(m_device, m_uniform.mem);
+	vkUnmapMemory(m_device, m_vertexBuffer.mem);
+
+	//No need to care index buffer cuz we actully don't change it
 
 	frame++;
 	return;
@@ -1882,9 +2019,9 @@ int main(int argc, char *argv[])
 	//Create UniformBuffer
 	glm::mat4 Projection = glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 100.0f);
 	glm::mat4 View = glm::lookAt(
-		glm::vec3(0, 3, 10), // Camera is at (0,3,10), in World Space
-		glm::vec3(0, 0, 0),  // and looks at the origin
-		glm::vec3(0, -1, 0)  // Head is up (set to 0,-1,0 to look upside-down)
+		glm::vec3(2.5, 3, 10), // Camera is at (2.5,3,10), in World Space
+		glm::vec3(2.5, 0, 0),  // and looks at the origin
+		glm::vec3(0, 1, 0)  // Head is up (set to 0,-1,0 to look upside-down)
 		);
 	glm::mat4 Model = glm::mat4(1.0f);
 	// Vulkan clip space has inverted Y and half Z.
@@ -1910,9 +2047,19 @@ int main(int argc, char *argv[])
 	m_framebuffers = CreateFrameBuffers(m_device, m_depthMap, m_swapChainImgBuffer.data(), m_renderPass, width, height, m_swapChainImageCount);
 
 	//Vertex buffer
+	GenerateNewBuffers(0);
 	m_vertexBuffer = CreateVertexBuffer(
+		m_device, m_memoryProperties, &surfaceData,
+		sizeof(surfaceData), sizeof(surfaceData[0]), m_viBinding, m_viAttribs);
+
+	/*m_vertexBuffer = CreateVertexBuffer(
 		m_device, m_memoryProperties, &g_vb_solid_face_colors_Data,
-		sizeof(g_vb_solid_face_colors_Data), sizeof(g_vb_solid_face_colors_Data[0]), m_viBinding, m_viAttribs);
+		sizeof(g_vb_solid_face_colors_Data), sizeof(g_vb_solid_face_colors_Data[0]), m_viBinding, m_viAttribs);*/
+
+	//Index buffer
+	m_indexBuffer = CreateIndexBuffer(
+		m_device, m_memoryProperties, &indexData,
+		sizeof(indexData), sizeof(indexData[0]));
 
 	//Desc pool & set
 	m_descPool = CreateDescriptorPool(m_device);
@@ -1928,6 +2075,7 @@ int main(int argc, char *argv[])
 
 	/**/const VkDeviceSize offsets[1] = { 0 };
 	/**/vkCmdBindVertexBuffers(m_cmdBuffer, 0, 1, &m_vertexBuffer.buf, offsets);
+	/**/vkCmdBindIndexBuffer(m_cmdBuffer, m_indexBuffer.buf, 0, VK_INDEX_TYPE_UINT32);
 
 	/**/initViewports(width, height, m_cmdBuffer, m_viewport);
 	/**/initScissors(width, height, m_cmdBuffer, m_scissor);
