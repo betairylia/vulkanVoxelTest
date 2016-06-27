@@ -21,6 +21,8 @@ public:
 	~DescPipelineLayout();
 	void init();
 
+	void initIA();
+
 	vector<VkDescriptorSetLayout> descLayout;
 	VkPipelineLayout pipelineLayout;
 

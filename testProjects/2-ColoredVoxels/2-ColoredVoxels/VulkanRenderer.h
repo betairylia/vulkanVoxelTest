@@ -41,11 +41,13 @@
 #include <Windows.h>
 
 #include "structs.h"
+#include "vHelper.h"
 
 #include "Pipeline.h"
 #include "DescSet.h"
 #include "Renderable.h"
 #include "DescPipelineLayout.h"
+#include "RenderPass.h"
 
 using namespace std;
 
@@ -73,9 +75,6 @@ public:
 	void EndCommandBuffer(VkCommandBuffer & cmdBuf);
 	void QueueCommandBuffer(VkCommandBuffer & cmdBuf, VkDevice & device, VkQueue & queue);
 
-	bool MemoryTypeFromProperties(VkPhysicalDeviceMemoryProperties memory_properties, uint32_t typeBits, VkFlags requirements_mask, uint32_t * typeIndex);
-	void SetImageLayout(VkCommandBuffer & cmdBuf, VkQueue & queue, VkImage image, VkImageAspectFlags aspectMask, VkImageLayout old_image_layout, VkImageLayout new_image_layout);
-
 	VkInstance CreateInstance(string instanceName);
 	void EnumeratePhysicalDevices(VkInstance & inst, vector<VkPhysicalDevice>& gpus, VkPhysicalDeviceMemoryProperties & memory_properties, VkPhysicalDeviceProperties & gpu_props);
 	VkDevice CreateDevice(vector<VkPhysicalDevice>& gpus, uint32_t & queueCount, vector<VkQueueFamilyProperties>& queueProps, uint32_t & familyIndex);
@@ -92,9 +91,8 @@ public:
 	void initScissors(int width, int height, VkCommandBuffer cmdBuf, VkRect2D & scissor);
 
 	VkImage CreateEmptyImage(uint32_t width, uint32_t height, VkFormat format);
-
-	void initRender(Pipeline pipeline, DescSet descSet, DescPipelineLayout layout, vector<Renderable> renderableList);
-	void render(Pipeline pipeline, DescPipelineLayout layout, vector<Renderable> renderableList);
+	
+	void render(DescPipelineLayout layout, RenderPass pass, RenderPass passDOF, vector<Renderable> renderableList);
 
 //private:
 	VkInstance m_instance;
@@ -129,7 +127,7 @@ public:
 	VkFramebuffer *m_framebuffers;
 
 	VkVertexInputBindingDescription m_viBinding;
-	VkVertexInputAttributeDescription m_viAttribs[2];
+	VkVertexInputAttributeDescription m_viAttribs[4];
 
 	VkDescriptorPool m_descPool;
 
@@ -137,6 +135,10 @@ public:
 	VkRect2D m_scissor;
 
 	bool m_prepared;
+
+	Renderable screenAlignedQuad;
+	DescPipelineLayout layoutIA;
+	VkSampler simpleSampler;
 
 	///win32
 	HINSTANCE m_connection;

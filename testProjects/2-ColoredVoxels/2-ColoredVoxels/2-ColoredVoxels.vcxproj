@@ -155,22 +155,32 @@
     <ClInclude Include="BlockGroup.h" />
     <ClInclude Include="BlockGroupToBufferWorker.h" />
     <ClInclude Include="BlockGroupToBufferWorker_CombineFaces.h" />
+    <ClInclude Include="deferredTestPass.h" />
     <ClInclude Include="DescPipelineLayout.h" />
     <ClInclude Include="DescSet.h" />
     <ClInclude Include="Pipeline.h" />
+    <ClInclude Include="PostEffectTestDOFPass.h" />
     <ClInclude Include="Renderable.h" />
+    <ClInclude Include="RenderPass.h" />
+    <ClInclude Include="simpleTestPass.h" />
     <ClInclude Include="structs.h" />
+    <ClInclude Include="vHelper.h" />
     <ClInclude Include="VulkanRenderer.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="BlockGroup.cpp" />
     <ClCompile Include="BlockGroupToBufferWorker.cpp" />
     <ClCompile Include="BlockGroupToBufferWorker_CombineFaces.cpp" />
+    <ClCompile Include="deferredTestPass.cpp" />
     <ClCompile Include="DescPipelineLayout.cpp" />
     <ClCompile Include="DescSet.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Pipeline.cpp" />
+    <ClCompile Include="PostEffectTestDOFPass.cpp" />
     <ClCompile Include="Renderable.cpp" />
+    <ClCompile Include="RenderPass.cpp" />
+    <ClCompile Include="simpleTestPass.cpp" />
+    <ClCompile Include="vHelper.cpp" />
     <ClCompile Include="VulkanRenderer.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

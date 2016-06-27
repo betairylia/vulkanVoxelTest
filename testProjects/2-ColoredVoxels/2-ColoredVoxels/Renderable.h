@@ -33,10 +33,13 @@ public:
 
 	void init(VkDevice _device, VkDescriptorPool pool, vector<VkDescriptorSetLayout> layout, VkPhysicalDeviceMemoryProperties memoryProp);
 
+	void initIA(VkDevice _device, VkDescriptorPool pool, vector<VkDescriptorSetLayout> layout, VkPhysicalDeviceMemoryProperties memoryProp, VkSampler sampler, VkImageView* views, VkImageLayout imgLayout);
+
 	void SetVertexBuffer(VkPhysicalDeviceMemoryProperties memoryProp, const void * vertexData, uint32_t dataSize, uint32_t dataStride, VkVertexInputBindingDescription & vi_binding, VkVertexInputAttributeDescription * vi_attribs);
 	void SetIndexBuffer(VkPhysicalDeviceMemoryProperties memoryProp, const void * indexData, uint32_t dataSize, uint32_t dataStride);
 	void SetUniformBuffer(void * content, int size, VkPhysicalDeviceMemoryProperties memoryProperties);
 	void SetPosition(float x, float y, float z, VkPhysicalDeviceMemoryProperties memoryProperties);
+	void SetScreenQuad(VkPhysicalDeviceMemoryProperties memoryProperties);
 
 	void UpdateVertexBuffer(VkDevice device, const void * vertexData, uint32_t dataSize);
 	void UpdateIndexBuffer(VkDevice device, const void * indexData, uint32_t dataSize);
@@ -49,5 +52,6 @@ public:
 private:
 
 	VkDevice device;
+	uniformData uData;
 };
 

@@ -66,6 +66,25 @@ void VulkanRenderer::init()
 	initViewports(width, height, m_cmdBuffer, m_viewport);
 	initScissors(width, height, m_cmdBuffer, m_scissor);
 
+	//sampler to sampling from framebuffer attachments
+	VkSamplerCreateInfo samplerInfo = {};
+	samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+	samplerInfo.pNext = NULL;
+	samplerInfo.magFilter = VK_FILTER_NEAREST;
+	samplerInfo.minFilter = VK_FILTER_NEAREST;
+	samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+	samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	samplerInfo.addressModeV = samplerInfo.addressModeU;
+	samplerInfo.addressModeW = samplerInfo.addressModeU;
+	samplerInfo.mipLodBias = 0.0f;
+	samplerInfo.maxAnisotropy = 0;
+	samplerInfo.minLod = 0.0f;
+	samplerInfo.maxLod = 1.0f;
+	samplerInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+
+	VkResult res = vkCreateSampler(m_device, &samplerInfo, NULL, &simpleSampler);
+	assert(res == VK_SUCCESS);
+
 	//Finish init
 	EndCommandBuffer(m_cmdBuffer);
 	QueueCommandBuffer(m_cmdBuffer, m_device, m_queue);
@@ -296,81 +315,6 @@ void VulkanRenderer::QueueCommandBuffer(VkCommandBuffer &cmdBuf, VkDevice &devic
 
 	vkDestroyFence(device, drawFence, NULL);
 }
-
-bool VulkanRenderer::MemoryTypeFromProperties(VkPhysicalDeviceMemoryProperties memory_properties, uint32_t typeBits, VkFlags requirements_mask, uint32_t *typeIndex)
-{
-	// Search memtypes to find first index with those properties
-	for (uint32_t i = 0; i < 32; i++) {
-		if ((typeBits & 1) == 1) {
-			// Type is available, does it match user properties?
-			if ((memory_properties.memoryTypes[i].propertyFlags &
-				requirements_mask) == requirements_mask) {
-				*typeIndex = i;
-				return true;
-			}
-		}
-		typeBits >>= 1;
-	}
-	// No memory types matched, return failure
-	return false;
-}
-
-void VulkanRenderer::SetImageLayout(VkCommandBuffer &cmdBuf, VkQueue &queue, VkImage image,
-	VkImageAspectFlags aspectMask,
-	VkImageLayout old_image_layout,
-	VkImageLayout new_image_layout) {
-	/* DEPENDS on info.cmd and info.queue initialized */
-
-	assert(cmdBuf != VK_NULL_HANDLE);
-	assert(queue != VK_NULL_HANDLE);
-
-	VkImageMemoryBarrier image_memory_barrier = {};
-	image_memory_barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-	image_memory_barrier.pNext = NULL;
-	image_memory_barrier.srcAccessMask = 0;
-	image_memory_barrier.dstAccessMask = 0;
-	image_memory_barrier.oldLayout = old_image_layout;
-	image_memory_barrier.newLayout = new_image_layout;
-	image_memory_barrier.image = image;
-	image_memory_barrier.subresourceRange.aspectMask = aspectMask;
-	image_memory_barrier.subresourceRange.baseMipLevel = 0;
-	image_memory_barrier.subresourceRange.levelCount = 1;
-	image_memory_barrier.subresourceRange.layerCount = 1;
-
-	if (old_image_layout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
-		image_memory_barrier.srcAccessMask =
-			VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-	}
-
-	if (new_image_layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
-		/* Make sure anything that was copying from this image has completed */
-		image_memory_barrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-	}
-
-	if (new_image_layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
-		/* Make sure any Copy or CPU writes to image are flushed */
-		image_memory_barrier.srcAccessMask =
-			VK_ACCESS_HOST_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
-		image_memory_barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-	}
-
-	if (new_image_layout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
-		image_memory_barrier.dstAccessMask =
-			VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
-	}
-
-	if (new_image_layout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
-		image_memory_barrier.dstAccessMask =
-			VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
-	}
-
-	VkPipelineStageFlags src_stages = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-	VkPipelineStageFlags dest_stages = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-
-	vkCmdPipelineBarrier(cmdBuf, src_stages, dest_stages, 0, 0, NULL, 0, NULL,
-		1, &image_memory_barrier);
-}
-
 
 /*
 Steps
@@ -754,7 +698,7 @@ VkSwapchainKHR VulkanRenderer::CreateSwapChain(
 
 		buffer[i].image = swapchainImages[i];
 
-		SetImageLayout(cmdBuf, queue, buffer[i].image, VK_IMAGE_ASPECT_COLOR_BIT,
+		vHelper::SetImageLayout(cmdBuf, queue, buffer[i].image, VK_IMAGE_ASPECT_COLOR_BIT,
 			VK_IMAGE_LAYOUT_UNDEFINED,
 			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
@@ -859,7 +803,7 @@ DepthMap VulkanRenderer::CreateDepthMap(
 
 	mem_alloc.allocationSize = mem_reqs.size;
 	/* Use the memory properties to determine the type of memory required */
-	bool pass = MemoryTypeFromProperties(memory_properties, mem_reqs.memoryTypeBits,
+	bool pass = vHelper::MemoryTypeFromProperties(memory_properties, mem_reqs.memoryTypeBits,
 		0, /* No Requirements */
 		&mem_alloc.memoryTypeIndex);
 	assert(pass);
@@ -873,7 +817,7 @@ DepthMap VulkanRenderer::CreateDepthMap(
 	assert(res == VK_SUCCESS);
 
 	/* Set the image layout to depth stencil optimal */
-	SetImageLayout(cmdBuf, queue, depth.image, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT,
+	vHelper::SetImageLayout(cmdBuf, queue, depth.image, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT,
 		VK_IMAGE_LAYOUT_UNDEFINED,
 		VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
@@ -1014,11 +958,14 @@ VkDescriptorPool VulkanRenderer::CreateDescriptorPool(VkDevice device)
 	type_count[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	type_count[0].descriptorCount = 1;
 
+	type_count[1].type = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+	type_count[1].descriptorCount = 5;
+
 	VkDescriptorPoolCreateInfo descriptor_pool = {};
 	descriptor_pool.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 	descriptor_pool.pNext = NULL;
 	descriptor_pool.maxSets = 16;
-	descriptor_pool.poolSizeCount = 1;
+	descriptor_pool.poolSizeCount = 2;
 	descriptor_pool.pPoolSizes = type_count;
 
 	res = vkCreateDescriptorPool(device, &descriptor_pool, NULL,
@@ -1102,7 +1049,7 @@ VkImage VulkanRenderer::CreateEmptyImage(uint32_t width, uint32_t height, VkForm
 	mem_alloc.allocationSize = mem_reqs.size;
 
 	/* Find the memory type that is host mappable */
-	bool pass = MemoryTypeFromProperties(m_memoryProperties, mem_reqs.memoryTypeBits,
+	bool pass = vHelper::MemoryTypeFromProperties(m_memoryProperties, mem_reqs.memoryTypeBits,
 		0,
 		&mem_alloc.memoryTypeIndex);
 	assert(pass && "No mappable, coherent memory");
@@ -1115,44 +1062,40 @@ VkImage VulkanRenderer::CreateEmptyImage(uint32_t width, uint32_t height, VkForm
 	res = vkBindImageMemory(m_device, mappableImage, mappableMemory, 0);
 	assert(res == VK_SUCCESS);
 
-	SetImageLayout(m_cmdBuffer, m_queue, mappableImage, VK_IMAGE_ASPECT_COLOR_BIT,
+	vHelper::SetImageLayout(m_cmdBuffer, m_queue, mappableImage, VK_IMAGE_ASPECT_COLOR_BIT,
 		VK_IMAGE_LAYOUT_UNDEFINED,
 		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 	return mappableImage;
 }
 
-void VulkanRenderer::initRender(Pipeline pipeline, DescSet descSet, DescPipelineLayout layout, vector<Renderable> renderableList)
-{
-	vkCmdBindPipeline(m_cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.pipelineObj);
-	vkCmdBindDescriptorSets(m_cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-		layout.pipelineLayout, 0, 1, descSet.set.data(), 0, NULL);
-
-	const VkDeviceSize offsets[1] = { 0 };
-
-	initViewports(width, height, m_cmdBuffer, m_viewport);
-	initScissors(width, height, m_cmdBuffer, m_scissor);
-}
-
 void VulkanRenderer::render(
-	Pipeline pipeline, 
-	DescPipelineLayout layout, vector<Renderable> renderableList)
+	DescPipelineLayout layout,
+	RenderPass pass, RenderPass passDOF, vector<Renderable> renderableList)
 {
 	BeginCommandBuffer(m_cmdBuffer);
 
 	VkResult res;
 
-	VkClearValue clear_values[3];
+	VkClearValue clear_values[4];
 	clear_values[0].color.float32[0] = 0.1f;
 	clear_values[0].color.float32[1] = 0.1f;
 	clear_values[0].color.float32[2] = 0.1f;
 	clear_values[0].color.float32[3] = 1.0f;
 	clear_values[1].color.float32[0] = 0.1f;
-	clear_values[1].color.float32[1] = 0.2f;
-	clear_values[1].color.float32[2] = 0.3f;
+	clear_values[1].color.float32[1] = 0.1f;
+	clear_values[1].color.float32[2] = 0.1f;
 	clear_values[1].color.float32[3] = 1.0f;
-	clear_values[2].depthStencil.depth = 1.0f;
-	clear_values[2].depthStencil.stencil = 0;
+	clear_values[2].color.float32[0] = 0.1f;
+	clear_values[2].color.float32[1] = 0.1f;
+	clear_values[2].color.float32[2] = 0.1f;
+	clear_values[2].color.float32[3] = 1.0f;
+	clear_values[3].depthStencil.depth = 1.0f;
+	clear_values[3].depthStencil.stencil = 0;
+	clear_values[4].color.float32[0] = 0.1f;
+	clear_values[4].color.float32[1] = 0.1f;
+	clear_values[4].color.float32[2] = 0.1f;
+	clear_values[4].color.float32[3] = 1.0f;
 
 	VkSemaphore presentCompleteSemaphore;
 	VkSemaphoreCreateInfo presentCompleteSemaphoreCreateInfo;
@@ -1173,29 +1116,33 @@ void VulkanRenderer::render(
 	// return codes
 	assert(res == VK_SUCCESS);
 
-	SetImageLayout(m_cmdBuffer, m_queue, m_swapChainImgBuffer[m_currentBuffer].image,
+	vHelper::SetImageLayout(m_cmdBuffer, m_queue, m_swapChainImgBuffer[m_currentBuffer].image,
 		VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED,//¥Ê“…
 		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
-	SetImageLayout(m_cmdBuffer, m_queue, m_swapChainImgBuffer2[m_currentBuffer].image,
-		VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
-		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+	//vHelper::SetImageLayout(m_cmdBuffer, m_queue, m_swapChainImgBuffer2[m_currentBuffer].image,
+	//	VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
+	//	VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
 	VkRenderPassBeginInfo rp_begin;
 	rp_begin.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 	rp_begin.pNext = NULL;
-	rp_begin.renderPass = m_renderPass;
-	rp_begin.framebuffer = m_framebuffers[m_currentBuffer];
+	rp_begin.renderPass = pass.renderPass;
+	rp_begin.framebuffer = pass.framebuffers[0];
 	rp_begin.renderArea.offset.x = 0;
 	rp_begin.renderArea.offset.y = 0;
 	rp_begin.renderArea.extent.width = width;
 	rp_begin.renderArea.extent.height = height;
-	rp_begin.clearValueCount = 3;
+	rp_begin.clearValueCount = 5;
 	rp_begin.pClearValues = clear_values;
 
 	vkCmdBeginRenderPass(m_cmdBuffer, &rp_begin, VK_SUBPASS_CONTENTS_INLINE);
 
-	vkCmdBindPipeline(m_cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.pipelineObj);
+	initViewports(width, height, m_cmdBuffer, m_viewport);
+	initScissors(width, height, m_cmdBuffer, m_scissor);
+
+	int i = 0;
+	vkCmdBindPipeline(m_cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pass.pipelines[0].pipelineObj);
 
 	const VkDeviceSize offsets[1] = { 0 };
 
@@ -1210,8 +1157,35 @@ void VulkanRenderer::render(
 		vkCmdDrawIndexed(m_cmdBuffer, renderableList[i].indicesCount, 1, 0, 0, 0);
 	}
 
-	initViewports(width, height, m_cmdBuffer, m_viewport);
-	initScissors(width, height, m_cmdBuffer, m_scissor);
+	vkCmdNextSubpass(m_cmdBuffer, VK_SUBPASS_CONTENTS_INLINE);
+
+	vkCmdBindPipeline(m_cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pass.pipelines[1].pipelineObj);
+
+	//draw a screen-aligned quad
+	vkCmdBindDescriptorSets(m_cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+		layoutIA.pipelineLayout, 0, screenAlignedQuad.descSet.descSetCount,
+		screenAlignedQuad.descSet.data(), 0, NULL);
+
+	vkCmdBindVertexBuffers(m_cmdBuffer, 0, 1, &screenAlignedQuad.vertexBuffer.buf, offsets);
+	vkCmdBindIndexBuffer(m_cmdBuffer, screenAlignedQuad.indexBuffer.buf, 0, VK_INDEX_TYPE_UINT32);
+	vkCmdDrawIndexed(m_cmdBuffer, 6, 1, 0, 0, 0);
+
+	vkCmdEndRenderPass(m_cmdBuffer);
+
+	rp_begin.renderPass = passDOF.renderPass;
+	rp_begin.framebuffer = passDOF.framebuffers[m_currentBuffer];
+	rp_begin.clearValueCount = 1;
+	
+	vkCmdBeginRenderPass(m_cmdBuffer, &rp_begin, VK_SUBPASS_CONTENTS_INLINE);
+
+	vkCmdBindPipeline(m_cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, passDOF.pipelines[0].pipelineObj);
+	vkCmdBindDescriptorSets(m_cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+		layoutIA.pipelineLayout, 0, screenAlignedQuad.descSet.descSetCount,
+		screenAlignedQuad.descSet.data(), 0, NULL);
+
+	vkCmdBindVertexBuffers(m_cmdBuffer, 0, 1, &screenAlignedQuad.vertexBuffer.buf, offsets);
+	vkCmdBindIndexBuffer(m_cmdBuffer, screenAlignedQuad.indexBuffer.buf, 0, VK_INDEX_TYPE_UINT32);
+	vkCmdDrawIndexed(m_cmdBuffer, 6, 1, 0, 0, 0);
 
 	vkCmdEndRenderPass(m_cmdBuffer);
 

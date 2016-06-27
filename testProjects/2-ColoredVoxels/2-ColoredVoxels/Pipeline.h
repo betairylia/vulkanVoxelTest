@@ -24,13 +24,18 @@ public:
 
 	void initPipeline(
 		VkVertexInputBindingDescription & vi_binding, VkVertexInputAttributeDescription * vi_attribs, 
-		VkPipelineLayout pipeline_layout, VkPipelineShaderStageCreateInfo * shaderStages, VkRenderPass render_pass);
+		VkPipelineLayout pipeline_layout, VkPipelineShaderStageCreateInfo * shaderStages, VkRenderPass render_pass,
+		int attachmentCount, int subpass);
+
+	void createPipeline();
 
 	void InitShader(const char * vertShaderText, const char * fragShaderText);
 
 	void initResources(TBuiltInResource & Resources);
 	EShLanguage FindLanguage(const VkShaderStageFlagBits shader_type);
 	bool GLSLtoSPV(const VkShaderStageFlagBits shader_type, const char * pshader, std::vector<unsigned int>& spirv);
+
+	VkGraphicsPipelineCreateInfo pipelineInfo;
 
 	VkPipeline pipelineObj;
 	VkPipelineCache cache;

@@ -40,6 +40,10 @@
 
 #include <Windows.h>
 
+#include "simpleTestPass.h"
+#include "deferredTestPass.h"
+#include "PostEffectTestDOFPass.h"
+
 #include "VulkanRenderer.h"
 
 #include "BlockGroup.h"
@@ -48,89 +52,150 @@
 using namespace std;
 
 /*
-Globals
+	descSet 支持Input attachment
+	给framebuffer上装sampler
+	试着搞一搞w
 */
 
-static const Vertex g_vb_solid_face_colors_Data[] = {
-	{ XYZ1(-1, -1, -1), XYZ1(1.f, 0.f, 0.f) },
-	{ XYZ1(1, -1, -1), XYZ1(1.f, 0.f, 0.f) },
-	{ XYZ1(-1, 1, -1), XYZ1(1.f, 0.f, 0.f) },
-	{ XYZ1(-1, 1, -1), XYZ1(1.f, 0.f, 0.f) },
-	{ XYZ1(1, -1, -1), XYZ1(1.f, 0.f, 0.f) },
-	{ XYZ1(1, 1, -1), XYZ1(1.f, 0.f, 0.f) },
+/*
+Globals
+*/
+Vertex quadVert[4] = {
+	{ 1, 1, 0.5, 1, 0, 0, 0, 1},
+	{-1, 1, 0.5, 0, 0, 0, 0, 1},
+	{-1,-1, 0.5, 0, 1, 0, 0, 1},
+	{ 1,-1, 0.5, 1, 1, 0, 0, 1}
+};
 
-	{ XYZ1(-1, -1, 1), XYZ1(0.f, 1.f, 0.f) },
-	{ XYZ1(-1, 1, 1), XYZ1(0.f, 1.f, 0.f) },
-	{ XYZ1(1, -1, 1), XYZ1(0.f, 1.f, 0.f) },
-	{ XYZ1(1, -1, 1), XYZ1(0.f, 1.f, 0.f) },
-	{ XYZ1(-1, 1, 1), XYZ1(0.f, 1.f, 0.f) },
-	{ XYZ1(1, 1, 1), XYZ1(0.f, 1.f, 0.f) },
-
-	{ XYZ1(1, 1, 1), XYZ1(0.f, 0.f, 1.f) },
-	{ XYZ1(1, 1, -1), XYZ1(0.f, 0.f, 1.f) },
-	{ XYZ1(1, -1, 1), XYZ1(0.f, 0.f, 1.f) },
-	{ XYZ1(1, -1, 1), XYZ1(0.f, 0.f, 1.f) },
-	{ XYZ1(1, 1, -1), XYZ1(0.f, 0.f, 1.f) },
-	{ XYZ1(1, -1, -1), XYZ1(0.f, 0.f, 1.f) },
-
-	{ XYZ1(-1, 1, 1), XYZ1(1.f, 1.f, 0.f) },
-	{ XYZ1(-1, -1, 1), XYZ1(1.f, 1.f, 0.f) },
-	{ XYZ1(-1, 1, -1), XYZ1(1.f, 1.f, 0.f) },
-	{ XYZ1(-1, 1, -1), XYZ1(1.f, 1.f, 0.f) },
-	{ XYZ1(-1, -1, 1), XYZ1(1.f, 1.f, 0.f) },
-	{ XYZ1(-1, -1, -1), XYZ1(1.f, 1.f, 0.f) },
-
-	{ XYZ1(1, 1, 1), XYZ1(1.f, 0.f, 1.f) },
-	{ XYZ1(-1, 1, 1), XYZ1(1.f, 0.f, 1.f) },
-	{ XYZ1(1, 1, -1), XYZ1(1.f, 0.f, 1.f) },
-	{ XYZ1(1, 1, -1), XYZ1(1.f, 0.f, 1.f) },
-	{ XYZ1(-1, 1, 1), XYZ1(1.f, 0.f, 1.f) },
-	{ XYZ1(-1, 1, -1), XYZ1(1.f, 0.f, 1.f) },
-
-	{ XYZ1(1, -1, 1), XYZ1(0.f, 1.f, 1.f) },
-	{ XYZ1(1, -1, -1), XYZ1(0.f, 1.f, 1.f) },
-	{ XYZ1(-1, -1, 1), XYZ1(0.f, 1.f, 1.f) },
-	{ XYZ1(-1, -1, 1), XYZ1(0.f, 1.f, 1.f) },
-	{ XYZ1(1, -1, -1), XYZ1(0.f, 1.f, 1.f) },
-	{ XYZ1(-1, -1, -1), XYZ1(0.f, 1.f, 1.f) },
+uint32_t quadIndex[6] = {
+	0, 1, 2, 2, 3, 0
 };
 
 bool useWireframe = true;
 
-static Vertex surfaceData[(LENGTH + 1) * (LENGTH + 1)];
-static uint32_t indexData[(LENGTH * LENGTH) * 6];
+static Vertex surfaceData[(LENGTH + 1) * (LENGTH + 1)] = {};
+static uint32_t indexData[(LENGTH * LENGTH) * 6] = {};
 
 static const char *vertShader =
 "#version 450\n"
 "#extension GL_ARB_separate_shader_objects : enable\n"
 "#extension GL_ARB_shading_language_420pack : enable\n"
 "layout (std140, binding = 0) uniform bufferVals {\n"
-"    mat4 mvp;\n"
+"    mat4 model;\n"
+"    mat4 view;\n"
+"    mat4 proj;\n"
 "} myBufferVals;\n"
-"layout (location = 0) in vec4 pos;\n"
-"layout (location = 1) in vec4 inColor;\n"
-"layout (location = 0) out vec4 outColor;\n"
-"layout (location = 1) out vec3 position;\n"
+"layout (location = 0) in vec3 pos;\n"
+"layout (location = 1) in vec2 uv;\n"
+"layout (location = 2) in vec3 normal;\n"
+"layout (location = 3) in uint meta;\n"
+"layout (location = 0) out vec3 worldPosition;\n"
+"layout (location = 1) out float depth;\n"
+"layout (location = 2) out vec3 worldNormal;\n"
+"layout (location = 3) out vec4 outColor;\n"
 "out gl_PerVertex { \n"
 "    vec4 gl_Position;\n"
 "};\n"
 "void main() {\n"
-"   outColor = inColor;\n"
-"	position = (myBufferVals.mvp * pos).xyz;\n"
-"   gl_Position = myBufferVals.mvp * pos;\n"
+"	worldPosition = (myBufferVals.model * vec4(pos, 1.0)).xyz;\n"
+"	worldNormal = transpose(inverse(mat3(myBufferVals.model))) * normalize(normal);\n"
+"   vec4 outPos = myBufferVals.proj * myBufferVals.view * myBufferVals.model * vec4(pos, 1.0);\n"
+"   outColor = vec4(0.8, 1, 0.6, 1);\n"
+"   depth = outPos.z / outPos.w;\n"
+"   gl_Position = outPos;\n"
 "}\n";
 
 static const char *fragShader =
 "#version 450\n"
 "#extension GL_ARB_separate_shader_objects : enable\n"
 "#extension GL_ARB_shading_language_420pack : enable\n"
-"layout (location = 0) in vec4 color;\n"
-"layout (location = 1) in vec3 position;\n"
+"layout (location = 0) in vec3 worldPosition;\n"
+"layout (location = 1) in float depth;\n"
+"layout (location = 2) in vec3 worldNormal;\n"
+"layout (location = 3) in vec4 color;\n"
 "layout (location = 0) out vec4 outColor;\n"
 "layout (location = 1) out vec4 outColor2;\n"
+"layout (location = 2) out vec4 outColor3;\n"
 "void main() {\n"
-"   outColor = color;\n"
-"	outColor2 = vec4(1, 0, 0, 1);\n"
+"   outColor = vec4(worldPosition, depth);\n"
+"	outColor2 = vec4(worldNormal, 1.0);\n"
+"   outColor3 = color;\n"
+"}\n";
+
+static const char *vertShaderScreenQuad =
+"#version 450\n"
+"#extension GL_ARB_separate_shader_objects : enable\n"
+"#extension GL_ARB_shading_language_420pack : enable\n"
+"layout (std140, binding = 0) uniform bufferVals {\n"
+"    mat4 model;\n"
+"    mat4 view;\n"
+"    mat4 proj;\n"
+"} myBufferVals;\n"
+"layout (location = 0) in vec3 pos;\n"
+"layout (location = 1) in vec2 uv;\n"
+"layout (location = 2) in vec3 normal;\n"
+"layout (location = 0) out vec2 outUV;\n"
+"out gl_PerVertex { \n"
+"    vec4 gl_Position;\n"
+"};\n"
+"void main() {\n"
+"   outUV = vec2(uv.x, 1.0 - uv.y);\n"
+"   gl_Position = vec4(pos, 1.0);\n"
+"}\n";
+
+//SSAO
+static const char *fragShaderScreenQuad =
+"#version 450\n"
+"#extension GL_ARB_separate_shader_objects : enable\n"
+"#extension GL_ARB_shading_language_420pack : enable\n"
+"layout (binding = 1) uniform sampler2D samplerPosition;\n"
+"layout (binding = 2) uniform sampler2D samplerNormal;\n"
+"layout (binding = 3) uniform sampler2D samplerColor;\n"
+"layout (location = 0) in vec2 uv;\n"
+"layout (location = 0) out vec4 outColor;\n"
+"int sampleCount = 8;\n"
+"int selAngle[8] = int[](2, 4, 3, 7, 6, 5, 0, 1);\n"
+"int selDist[8]  = int[](3, 2, 4, 7, 1, 6, 5, 0);\n"
+"float fSelAngle = 6.2831853 / sampleCount;\n"
+"float fSelDist  = 1.0 / sampleCount;\n"
+"float fScaler = 0.5;\n"
+"float rand(vec2 co){\n"
+"    return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);\n"
+"}\n"
+"void main() {\n"
+"    vec2 vSampleVector;\n"
+"    vec3 vPos = texture(samplerPosition, uv).xyz;\n"
+"    vec3 vNormal = texture(samplerNormal, uv).xyz;\n"
+"    float occ = 0.0;\n"
+"    for(int i = 0; i < sampleCount; ++i)\n"
+"    {\n"
+"        int n = selAngle[i];\n"
+"        int m = selDist[i];\n"
+"        vSampleVector = vec2(cos(fSelAngle * n), sin(fSelAngle * n)) * (fSelDist * (m + 1)) * fScaler / vPos.z;\n"
+"        float rAngle = 3.14159265 * rand(vPos.yx);\n"
+"        vSampleVector = mat2(cos(rAngle), -sin(rAngle), sin(rAngle), cos(rAngle)) * vSampleVector;\n"
+"        float dDist = length(vPos - texture(samplerPosition, uv + vSampleVector).xyz);\n"
+"        float fNorm = max(0.0, dot(vNormal, texture(samplerNormal, uv + vSampleVector).xyz) - 0.1);\n"
+"        float fDist = 1.0 / (1.0 + dDist * dDist);"
+"        occ += fNorm * fDist;\n"
+"    }\n"
+"    occ = occ / sampleCount;\n"
+"    outColor = vec4(texture(samplerColor, uv).rgb * occ, 1.0);\n"
+"}\n";
+
+//DOF
+static const char *fragShaderTestDOF =
+"#version 450\n"
+"#extension GL_ARB_separate_shader_objects : enable\n"
+"#extension GL_ARB_shading_language_420pack : enable\n"
+"layout (binding = 1) uniform sampler2D samplerPosition;\n"
+"layout (binding = 2) uniform sampler2D samplerNormal;\n"
+"layout (binding = 3) uniform sampler2D samplerColor;\n"
+"layout (binding = 4) uniform sampler2D samplerResult;\n"
+"layout (location = 0) in vec2 uv;\n"
+"layout (location = 0) out vec4 outColor;\n"
+"void main() {\n"
+"   outColor = texture(samplerResult, uv);\n"
 "}\n";
 
 bool m_prepared;
@@ -145,10 +210,15 @@ const int width = 1440;
 const int height = 900;
 
 VulkanRenderer renderer;
-Pipeline pipeline;
+Pipeline pipelineGBuffer, pipelineRendering, pipelineDOF;
 DescSet descSet;
 DescPipelineLayout layout;
 vector<Renderable> renderables;
+//SimpleTestPass pass;
+DeferredTestPass pass;
+PostEffectTestDOFPass passDOF;
+
+VkImageView views[4];
 
 BlockGroup blockGroup;
 BlockGroupToBufferWorker worker;
@@ -235,7 +305,7 @@ void InitWindow(int width, int height, string windowTitle)
 
 void render()
 {
-	renderer.render(pipeline, layout, renderables);
+	renderer.render(layout, pass, passDOF, renderables);
 }
 
 void GenerateNewBuffers(int frame)
@@ -318,14 +388,17 @@ void update()
 	vkUnmapMemory(renderer.m_device, renderables[0].vertexBuffer.mem);
 */
 
-	//blockGroup.generateTestChunk((double)frame / 200);
-	//worker.workUpdate(renderer.m_device, renderables[0], blockGroup);
-	//
-	//blockGroup.generateTestChunk((double)frame / 400);
-	//worker.workUpdate(renderer.m_device, renderables[1], blockGroup);
+	if (frame % 5 == 0)
+	{
+		blockGroup.generateTestChunk((double)frame / 200);
+		worker.workUpdate(renderer.m_device, renderables[0], blockGroup);
 
-	renderables[0].UpdatePosition(  10 +   cos((double)frame / 300)  * 10, -20, -70);
-	renderables[1].UpdatePosition( -42 + (-cos((double)frame / 300)) * 10, -20, -70);
+		blockGroup.generateTestChunk((double)frame / 400);
+		worker.workUpdate(renderer.m_device, renderables[1], blockGroup);
+	}
+
+	renderables[0].UpdatePosition(   5 +   cos((double)frame / 300)  * 5, -20, -70);
+	renderables[1].UpdatePosition( -37 + (-cos((double)frame / 300)) * 5, -20, -70);
 
 	QueryPerformanceCounter(&tNow);
 	fps = 1.000 / ((tNow.QuadPart - tPrev.QuadPart) * 1.0 / tC.QuadPart);
@@ -374,6 +447,9 @@ int main(int argc, char *argv[])
 	layout.m_device = renderer.m_device;
 	layout.init();
 
+	renderer.layoutIA.m_device = renderer.m_device;
+	renderer.layoutIA.initIA();
+
 	Renderable r;
 
 	r.init(renderer.m_device, renderer.m_descPool, layout.descLayout, renderer.m_memoryProperties);
@@ -398,9 +474,47 @@ int main(int argc, char *argv[])
 	worker.workUpdate(renderer.m_device, renderables[0], blockGroup);
 	worker.workUpdate(renderer.m_device, renderables[1], blockGroup);
 
-	pipeline.m_device = renderer.m_device;
-	pipeline.InitShader(vertShader, fragShader);
-	pipeline.initPipeline(renderer.m_viBinding, renderer.m_viAttribs, layout.pipelineLayout, pipeline.info, renderer.m_renderPass);
+	pass.SetBase(renderer.m_device, renderer.m_GPUs[0], renderer.m_memoryProperties, renderer.m_cmdBuffer, renderer.m_queue, width, height);
+	pass.initPass();
+
+	passDOF.SetBase(renderer.m_device, renderer.m_GPUs[0], renderer.m_memoryProperties, renderer.m_cmdBuffer, renderer.m_queue, width, height);
+	passDOF.initPass(renderer.m_swapChainImgBuffer.data(), renderer.m_swapChainImageCount, renderer.m_colorImgFormat);
+
+	//Screen quad
+	views[0] = pass.bufferImages.position.view;
+	views[1] = pass.bufferImages.normal.view;
+	views[2] = pass.bufferImages.color.view;
+	views[3] = pass.bufferImages.output.view;
+	renderer.screenAlignedQuad.initIA(renderer.m_device, renderer.m_descPool, renderer.layoutIA.descLayout, renderer.m_memoryProperties, renderer.simpleSampler, views, VK_IMAGE_LAYOUT_GENERAL);
+	renderer.screenAlignedQuad.SetVertexBuffer(renderer.m_memoryProperties, quadVert, sizeof(quadVert), sizeof(quadVert[0]), renderer.m_viBinding, renderer.m_viAttribs);
+	renderer.screenAlignedQuad.SetIndexBuffer(renderer.m_memoryProperties, quadIndex, sizeof(quadIndex), sizeof(quadIndex[0]));
+	renderer.screenAlignedQuad.SetScreenQuad(renderer.m_memoryProperties);
+
+	//Pipeline A
+	pipelineGBuffer.m_device = renderer.m_device;
+	pipelineGBuffer.InitShader(vertShader, fragShader);
+	pipelineGBuffer.initPipeline(renderer.m_viBinding, renderer.m_viAttribs, layout.pipelineLayout, pipelineGBuffer.info, pass.renderPass, 3, 0);
+
+	//Pipeline B
+	pipelineRendering.m_device = renderer.m_device;
+	pipelineRendering.InitShader(vertShaderScreenQuad, fragShaderScreenQuad);
+	pipelineRendering.initPipeline(renderer.m_viBinding, renderer.m_viAttribs, renderer.layoutIA.pipelineLayout, pipelineRendering.info, pass.renderPass, 1, 1);
+	
+	pass.subPassCount = 2;
+	pass.pipelines = (Pipeline*)malloc(sizeof(Pipeline) * 2);
+	
+	pass.pipelines[0] = pipelineGBuffer;
+	pass.pipelines[1] = pipelineRendering;
+
+	//Pipeline DOF
+	pipelineDOF.m_device = renderer.m_device;
+	pipelineDOF.InitShader(vertShaderScreenQuad, fragShaderTestDOF);
+	pipelineDOF.initPipeline(renderer.m_viBinding, renderer.m_viAttribs, renderer.layoutIA.pipelineLayout, pipelineDOF.info, passDOF.renderPass, 1, 0);
+
+	passDOF.subPassCount = 1;
+	passDOF.pipelines = (Pipeline*)malloc(sizeof(Pipeline));
+
+	passDOF.pipelines[0] = pipelineDOF;
 
 	//descSet.m_device = renderer.m_device;
 	//descSet.setDescPool(renderer.m_descPool);

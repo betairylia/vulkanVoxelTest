@@ -37,10 +37,10 @@ void BlockGroupToBufferWorker::workUpdate(VkDevice device, Renderable & renderab
 				if (x == 0 || blockGroup.blockID[x - 1][y][z] == 0)//todo: == 0 => is not solid block
 				{
 					//todo: more attributes
-					vertices.push_back({ (float)x + 0, (float)y + 0, (float)z + 0, 1, 1, 1, 1, 1 });
-					vertices.push_back({ (float)x + 0, (float)y + 1, (float)z + 0, 1, 1, 1, 1, 1 });
-					vertices.push_back({ (float)x + 0, (float)y + 1, (float)z + 1, 1, 1, 1, 1, 1 });
-					vertices.push_back({ (float)x + 0, (float)y + 0, (float)z + 1, 1, 1, 1, 1, 1 });
+					vertices.push_back({ (float)x + 0, (float)y + 0, (float)z + 0, 0, 1,-1, 0, 0});
+					vertices.push_back({ (float)x + 0, (float)y + 1, (float)z + 0, 0, 0,-1, 0, 0});
+					vertices.push_back({ (float)x + 0, (float)y + 1, (float)z + 1, 1, 0,-1, 0, 0});
+					vertices.push_back({ (float)x + 0, (float)y + 0, (float)z + 1, 1, 1,-1, 0, 0});
 
 					indices.push_back(count + 0);
 					indices.push_back(count + 1);
@@ -55,10 +55,10 @@ void BlockGroupToBufferWorker::workUpdate(VkDevice device, Renderable & renderab
 				if (x == 31 || blockGroup.blockID[x + 1][y][z] == 0)//todo: == 0 => is not solid block
 				{
 					//todo: more attributes
-					vertices.push_back({ (float)x + 1, (float)y + 0, (float)z + 0, 1, 1, 1, 1, 1 });
-					vertices.push_back({ (float)x + 1, (float)y + 0, (float)z + 1, 1, 1, 1, 1, 1 });
-					vertices.push_back({ (float)x + 1, (float)y + 1, (float)z + 1, 1, 1, 1, 1, 1 });
-					vertices.push_back({ (float)x + 1, (float)y + 1, (float)z + 0, 1, 1, 1, 1, 1 });
+					vertices.push_back({ (float)x + 1, (float)y + 0, (float)z + 0, 1, 1, 1, 0, 0});
+					vertices.push_back({ (float)x + 1, (float)y + 0, (float)z + 1, 0, 1, 1, 0, 0});
+					vertices.push_back({ (float)x + 1, (float)y + 1, (float)z + 1, 0, 0, 1, 0, 0});
+					vertices.push_back({ (float)x + 1, (float)y + 1, (float)z + 0, 1, 0, 1, 0, 0});
 
 					indices.push_back(count + 0);
 					indices.push_back(count + 1);
@@ -73,10 +73,10 @@ void BlockGroupToBufferWorker::workUpdate(VkDevice device, Renderable & renderab
 				if (y == 0 || blockGroup.blockID[x][y - 1][z] == 0)//todo: == 0 => is not solid block
 				{
 					//todo: more attributes
-					vertices.push_back({ (float)x + 0, (float)y + 0, (float)z + 0, 1, 1, 1, 1, 1 });
-					vertices.push_back({ (float)x + 0, (float)y + 0, (float)z + 1, 1, 1, 1, 1, 1 });
-					vertices.push_back({ (float)x + 1, (float)y + 0, (float)z + 1, 1, 1, 1, 1, 1 });
-					vertices.push_back({ (float)x + 1, (float)y + 0, (float)z + 0, 1, 1, 1, 1, 1 });
+					vertices.push_back({ (float)x + 0, (float)y + 0, (float)z + 0, 0, 0, 0,-1, 0});
+					vertices.push_back({ (float)x + 0, (float)y + 0, (float)z + 1, 0, 1, 0,-1, 0});
+					vertices.push_back({ (float)x + 1, (float)y + 0, (float)z + 1, 1, 1, 0,-1, 0});
+					vertices.push_back({ (float)x + 1, (float)y + 0, (float)z + 0, 1, 0, 0,-1, 0});
 
 					indices.push_back(count + 0);
 					indices.push_back(count + 1);
@@ -91,10 +91,10 @@ void BlockGroupToBufferWorker::workUpdate(VkDevice device, Renderable & renderab
 				if (y == 31 || blockGroup.blockID[x][y + 1][z] == 0)//todo: == 0 => is not solid block
 				{
 					//todo: more attributes
-					vertices.push_back({ (float)x + 0, (float)y + 1, (float)z + 0, 1, 1, 1, 1, 1 });
-					vertices.push_back({ (float)x + 1, (float)y + 1, (float)z + 0, 1, 1, 1, 1, 1 });
-					vertices.push_back({ (float)x + 1, (float)y + 1, (float)z + 1, 1, 1, 1, 1, 1 });
-					vertices.push_back({ (float)x + 0, (float)y + 1, (float)z + 1, 1, 1, 1, 1, 1 });
+					vertices.push_back({ (float)x + 0, (float)y + 1, (float)z + 0, 0, 0, 0, 1, 0});
+					vertices.push_back({ (float)x + 1, (float)y + 1, (float)z + 0, 1, 0, 0, 1, 0});
+					vertices.push_back({ (float)x + 1, (float)y + 1, (float)z + 1, 1, 1, 0, 1, 0});
+					vertices.push_back({ (float)x + 0, (float)y + 1, (float)z + 1, 0, 1, 0, 1, 0});
 
 					indices.push_back(count + 0);
 					indices.push_back(count + 1);
@@ -109,10 +109,10 @@ void BlockGroupToBufferWorker::workUpdate(VkDevice device, Renderable & renderab
 				if (z == 0 || blockGroup.blockID[x][y][z - 1] == 0)//todo: == 0 => is not solid block
 				{
 					//todo: more attributes
-					vertices.push_back({ (float)x + 0, (float)y + 0, (float)z + 0, 1, 1, 1, 1, 1 });
-					vertices.push_back({ (float)x + 1, (float)y + 0, (float)z + 0, 1, 1, 1, 1, 1 });
-					vertices.push_back({ (float)x + 1, (float)y + 1, (float)z + 0, 1, 1, 1, 1, 1 });
-					vertices.push_back({ (float)x + 0, (float)y + 1, (float)z + 0, 1, 1, 1, 1, 1 });
+					vertices.push_back({ (float)x + 0, (float)y + 0, (float)z + 0, 1, 1, 0, 0, -1});
+					vertices.push_back({ (float)x + 1, (float)y + 0, (float)z + 0, 0, 1, 0, 0, -1});
+					vertices.push_back({ (float)x + 1, (float)y + 1, (float)z + 0, 0, 0, 0, 0, -1});
+					vertices.push_back({ (float)x + 0, (float)y + 1, (float)z + 0, 1, 0, 0, 0, -1});
 
 					indices.push_back(count + 0);
 					indices.push_back(count + 1);
@@ -127,10 +127,10 @@ void BlockGroupToBufferWorker::workUpdate(VkDevice device, Renderable & renderab
 				if (z == 31 || blockGroup.blockID[x][y][z + 1] == 0)//todo: == 0 => is not solid block
 				{
 					//todo: more attributes
-					vertices.push_back({ (float)x + 0, (float)y + 0, (float)z + 1, 1, 1, 1, 1, 1 });
-					vertices.push_back({ (float)x + 0, (float)y + 1, (float)z + 1, 1, 1, 1, 1, 1 });
-					vertices.push_back({ (float)x + 1, (float)y + 1, (float)z + 1, 1, 1, 1, 1, 1 });
-					vertices.push_back({ (float)x + 1, (float)y + 0, (float)z + 1, 1, 1, 1, 1, 1 });
+					vertices.push_back({ (float)x + 0, (float)y + 0, (float)z + 1, 0, 1, 0, 0, 1});
+					vertices.push_back({ (float)x + 0, (float)y + 1, (float)z + 1, 0, 0, 0, 0, 1});
+					vertices.push_back({ (float)x + 1, (float)y + 1, (float)z + 1, 1, 0, 0, 0, 1});
+					vertices.push_back({ (float)x + 1, (float)y + 0, (float)z + 1, 1, 1, 0, 0, 1});
 
 					indices.push_back(count + 0);
 					indices.push_back(count + 1);

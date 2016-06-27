@@ -22,6 +22,17 @@ void Renderable::init(VkDevice _device, VkDescriptorPool pool, vector<VkDescript
 	descSet.CreateDescriptorSet(layout, uniformBuffer);
 }
 
+void Renderable::initIA(VkDevice _device, VkDescriptorPool pool, vector<VkDescriptorSetLayout> layout, VkPhysicalDeviceMemoryProperties memoryProp, VkSampler sampler, VkImageView* views, VkImageLayout imgLayout)
+{
+	device = _device;
+
+	SetPosition(0, 0, 0, memoryProp);
+
+	descSet.m_device = device;
+	descSet.setDescPool(pool);
+	descSet.CreateDescriptorSetIA(layout, uniformBuffer, sampler, views, imgLayout);
+}
+
 void Renderable::SetVertexBuffer(VkPhysicalDeviceMemoryProperties memoryProp, const void * vertexData, uint32_t dataSize, uint32_t dataStride, VkVertexInputBindingDescription & vi_binding, VkVertexInputAttributeDescription * vi_attribs)
 {
 	VkResult res;
@@ -77,17 +88,25 @@ void Renderable::SetVertexBuffer(VkPhysicalDeviceMemoryProperties memoryProp, co
 	assert(res == VK_SUCCESS);
 
 	vi_binding.binding = 0;
-	vi_binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+	vi_binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX; 
 	vi_binding.stride = dataStride;
 
+	//position
 	vi_attribs[0].binding = 0;
 	vi_attribs[0].location = 0;
-	vi_attribs[0].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+	vi_attribs[0].format = VK_FORMAT_R32G32B32_SFLOAT;
 	vi_attribs[0].offset = 0;
+	//uv
 	vi_attribs[1].binding = 0;
 	vi_attribs[1].location = 1;
-	vi_attribs[1].format = VK_FORMAT_R32G32B32A32_SFLOAT;
-	vi_attribs[1].offset = 4 * sizeof(float);
+	vi_attribs[1].format = VK_FORMAT_R32G32_SFLOAT;
+	vi_attribs[1].offset = 3 * sizeof(float);
+	//normal
+	vi_attribs[2].binding = 0;
+	vi_attribs[2].location = 2;
+	vi_attribs[2].format = VK_FORMAT_R32G32B32_SFLOAT;
+	vi_attribs[2].offset = 5 * sizeof(float);
+	//uv2, ..., tangent, blockID etc.
 }
 
 void Renderable::SetIndexBuffer(VkPhysicalDeviceMemoryProperties memoryProp, const void * vertexData, uint32_t dataSize, uint32_t dataStride)
@@ -202,7 +221,7 @@ void Renderable::SetUniformBuffer(void * content, int size, VkPhysicalDeviceMemo
 void Renderable::SetPosition(float x, float y, float z, VkPhysicalDeviceMemoryProperties memoryProperties)
 {
 	//Create UniformBuffer
-	glm::mat4 Projection = glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 100.0f);
+	glm::mat4 Projection = glm::perspective(glm::radians(45.0f), 1.6f, 0.1f, 100.0f);
 	glm::mat4 View = glm::lookAt(
 		glm::vec3(0, 3, 10), // Camera is at (2.5,3,10), in World Space
 		glm::vec3(0, 0, -10),  // and looks at the origin
@@ -216,7 +235,21 @@ void Renderable::SetPosition(float x, float y, float z, VkPhysicalDeviceMemoryPr
 		0.0f, 0.0f, 0.5f, 0.0f,
 		0.0f, 0.0f, 0.5f, 1.0f);
 
-	glm::mat4 MVP = Clip * Projection * View * Model;
+	//glm::mat4 MVP = Clip * Projection * View * Model;
+	uData.model = Model;
+	uData.view = View;
+	uData.proj = Clip * Projection;
+
+	SetUniformBuffer(&uData, sizeof(uData), memoryProperties);
+}
+
+void Renderable::SetScreenQuad(VkPhysicalDeviceMemoryProperties memoryProperties)
+{
+	//Create UniformBuffer
+	glm::mat4 Projection = glm::ortho(0.0f, 1.0f, 0.0f, 1.0f, -1.0f, 1.0f);
+	glm::mat4 Model = glm::mat4();
+
+	glm::mat4 MVP = Projection * Model;
 
 	SetUniformBuffer(&MVP, sizeof(MVP), memoryProperties);
 }
@@ -249,7 +282,8 @@ void Renderable::UpdateIndexBuffer(VkDevice device, const void * indexData, uint
 
 void Renderable::UpdatePosition(float x, float y, float z)
 {
-	glm::mat4 Projection = glm::perspective(glm::radians(45.0f), 16.0f / 10.0f, 0.1f, 100.0f);
+	//Create UniformBuffer
+	glm::mat4 Projection = glm::perspective(glm::radians(45.0f), 1.6f, 0.1f, 100.0f);
 	glm::mat4 View = glm::lookAt(
 		glm::vec3(0, 3, 10), // Camera is at (2.5,3,10), in World Space
 		glm::vec3(0, 0, -10),  // and looks at the origin
@@ -263,7 +297,10 @@ void Renderable::UpdatePosition(float x, float y, float z)
 		0.0f, 0.0f, 0.5f, 0.0f,
 		0.0f, 0.0f, 0.5f, 1.0f);
 
-	glm::mat4 MVP = Clip * Projection * View * Model;
+	//glm::mat4 MVP = Clip * Projection * View * Model;
+	uData.model = Model;
+	uData.view = View;
+	uData.proj = Clip * Projection;
 
 	uint8_t *pData;
 
@@ -271,7 +308,7 @@ void Renderable::UpdatePosition(float x, float y, float z)
 		(void **)&pData);
 	assert(res == VK_SUCCESS);
 
-	memcpy(pData, (const void*)&MVP, sizeof(MVP));
+	memcpy(pData, (const void*)&uData, sizeof(uData));
 
 	vkUnmapMemory(device, uniformBuffer.mem);
 }

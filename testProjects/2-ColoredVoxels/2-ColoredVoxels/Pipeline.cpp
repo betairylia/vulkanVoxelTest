@@ -170,7 +170,7 @@ bool Pipeline::GLSLtoSPV(const VkShaderStageFlagBits shader_type, const char *ps
 	return true;
 }
 
-void Pipeline::initPipeline(VkVertexInputBindingDescription & vi_binding, VkVertexInputAttributeDescription * vi_attribs, VkPipelineLayout pipeline_layout, VkPipelineShaderStageCreateInfo * shaderStages, VkRenderPass render_pass)
+void Pipeline::initPipeline(VkVertexInputBindingDescription & vi_binding, VkVertexInputAttributeDescription * vi_attribs, VkPipelineLayout pipeline_layout, VkPipelineShaderStageCreateInfo * shaderStages, VkRenderPass render_pass, int attachmentCount, int subpass)
 {
 	VkResult res;
 
@@ -201,7 +201,7 @@ void Pipeline::initPipeline(VkVertexInputBindingDescription & vi_binding, VkVert
 	vi.flags = 0;
 	vi.vertexBindingDescriptionCount = 1;
 	vi.pVertexBindingDescriptions = &vi_binding;
-	vi.vertexAttributeDescriptionCount = 2;
+	vi.vertexAttributeDescriptionCount = 3;
 	vi.pVertexAttributeDescriptions = vi_attribs;
 
 	//Input assamble£¨TRIANGLE_LIST£©
@@ -231,11 +231,12 @@ void Pipeline::initPipeline(VkVertexInputBindingDescription & vi_binding, VkVert
 	rs.lineWidth = 1.0f;
 
 	//Colorblending ( DISABLED [ Add, rgb = 0 + 0, a = 0 + 0 ] ) [[[What is cb.blendConstants?]]]
+
 	VkPipelineColorBlendStateCreateInfo cb;
 	cb.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
 	cb.flags = 0;
 	cb.pNext = NULL;
-	VkPipelineColorBlendAttachmentState att_state[2];
+	VkPipelineColorBlendAttachmentState att_state[3];
 	att_state[0].colorWriteMask = 0xf;
 	att_state[0].blendEnable = VK_FALSE;
 	att_state[0].alphaBlendOp = VK_BLEND_OP_ADD;
@@ -252,7 +253,15 @@ void Pipeline::initPipeline(VkVertexInputBindingDescription & vi_binding, VkVert
 	att_state[1].dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
 	att_state[1].srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
 	att_state[1].dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-	cb.attachmentCount = 2;
+	att_state[2].colorWriteMask = 0xf;
+	att_state[2].blendEnable = VK_FALSE;
+	att_state[2].alphaBlendOp = VK_BLEND_OP_ADD;
+	att_state[2].colorBlendOp = VK_BLEND_OP_ADD;
+	att_state[2].srcColorBlendFactor = VK_BLEND_FACTOR_ZERO;
+	att_state[2].dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
+	att_state[2].srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+	att_state[2].dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+	cb.attachmentCount = attachmentCount;
 	cb.pAttachments = att_state;
 	cb.logicOpEnable = VK_FALSE;
 	cb.logicOp = VK_LOGIC_OP_NO_OP;
@@ -311,30 +320,34 @@ void Pipeline::initPipeline(VkVertexInputBindingDescription & vi_binding, VkVert
 	ms.minSampleShading = 0.0;
 
 	//pipeline!
-	VkGraphicsPipelineCreateInfo pipeline;
-	pipeline.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-	pipeline.pNext = NULL;
-	pipeline.layout = pipeline_layout;
-	pipeline.basePipelineHandle = VK_NULL_HANDLE;
-	pipeline.basePipelineIndex = 0;
-	pipeline.flags = 0;
-	pipeline.pVertexInputState = &vi;
-	pipeline.pInputAssemblyState = &ia;
-	pipeline.pRasterizationState = &rs;
-	pipeline.pColorBlendState = &cb;
-	pipeline.pTessellationState = NULL;
-	pipeline.pMultisampleState = &ms;
-	pipeline.pDynamicState = &dynamicState;
-	pipeline.pViewportState = &vp;
-	pipeline.pDepthStencilState = &ds;
-	pipeline.pStages = shaderStages;
-	pipeline.stageCount = 2;
-	pipeline.renderPass = render_pass;
-	pipeline.subpass = 0;
+	pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+	pipelineInfo.pNext = NULL;
+	pipelineInfo.layout = pipeline_layout;
+	pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
+	pipelineInfo.basePipelineIndex = 0;
+	pipelineInfo.flags = 0;
+	pipelineInfo.pVertexInputState = &vi;
+	pipelineInfo.pInputAssemblyState = &ia;
+	pipelineInfo.pRasterizationState = &rs;
+	pipelineInfo.pColorBlendState = &cb;
+	pipelineInfo.pTessellationState = NULL;
+	pipelineInfo.pMultisampleState = &ms;
+	pipelineInfo.pDynamicState = &dynamicState;
+	pipelineInfo.pViewportState = &vp;
+	pipelineInfo.pDepthStencilState = &ds;
+	pipelineInfo.pStages = shaderStages;
+	pipelineInfo.stageCount = 2;
+	pipelineInfo.renderPass = render_pass;
+	pipelineInfo.subpass = subpass;
 
 	res = vkCreateGraphicsPipelines(m_device, cache, 1,
-		&pipeline, NULL, &pipelineObj);
+		&pipelineInfo, NULL, &pipelineObj);
 	assert(res == VK_SUCCESS);
+}
+
+void Pipeline::createPipeline()
+{
+
 }
 
 void Pipeline::InitShader(const char * vertShaderText, const char * fragShaderText)

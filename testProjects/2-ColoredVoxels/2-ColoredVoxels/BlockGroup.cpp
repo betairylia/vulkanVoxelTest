@@ -20,7 +20,7 @@ void BlockGroup::generateTestChunk(double nowTime)
 		{
 			for (z = 0;z < 32;z++)
 			{
-				if(16 + (z - 16) * 0.5 * sin(nowTime) > y)
+				if(16 + (z - 16) * 0.5 * sin(nowTime + x / 5) > y)
 					blockID[x][y][z] = 1;
 			}
 		}

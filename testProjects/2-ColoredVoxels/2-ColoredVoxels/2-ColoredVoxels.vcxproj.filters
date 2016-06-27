@@ -13,6 +13,12 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="头文件\renderPasses">
+      <UniqueIdentifier>{ed2feaad-4bae-4580-b757-ac20ba40d3ba}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\renderPasses">
+      <UniqueIdentifier>{12b9b86c-4308-4630-9f7d-45e01ece1f92}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="VulkanRenderer.h">
@@ -42,6 +48,21 @@
     <ClInclude Include="BlockGroupToBufferWorker_CombineFaces.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="RenderPass.h">
+      <Filter>头文件\renderPasses</Filter>
+    </ClInclude>
+    <ClInclude Include="deferredTestPass.h">
+      <Filter>头文件\renderPasses</Filter>
+    </ClInclude>
+    <ClInclude Include="simpleTestPass.h">
+      <Filter>头文件\renderPasses</Filter>
+    </ClInclude>
+    <ClInclude Include="vHelper.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="PostEffectTestDOFPass.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="VulkanRenderer.cpp">
@@ -69,6 +90,21 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="BlockGroupToBufferWorker_CombineFaces.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="RenderPass.cpp">
+      <Filter>源文件\renderPasses</Filter>
+    </ClCompile>
+    <ClCompile Include="deferredTestPass.cpp">
+      <Filter>源文件\renderPasses</Filter>
+    </ClCompile>
+    <ClCompile Include="simpleTestPass.cpp">
+      <Filter>源文件\renderPasses</Filter>
+    </ClCompile>
+    <ClCompile Include="vHelper.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="PostEffectTestDOFPass.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

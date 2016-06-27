@@ -28,6 +28,8 @@ public:
 	void setDescPool(VkDescriptorPool pool);
 	void CreateDescriptorSet(vector<VkDescriptorSetLayout>& desc_layout, UniformBuffer & uniform_data);	//TEST, UNIFORM ONLY
 
+	void CreateDescriptorSetIA(vector<VkDescriptorSetLayout>& desc_layout, UniformBuffer & uniform_data, VkSampler sampler, VkImageView* views, VkImageLayout imgLayout);
+
 	vector<VkDescriptorSet> set;
 
 	VkDescriptorPool m_descPool;
