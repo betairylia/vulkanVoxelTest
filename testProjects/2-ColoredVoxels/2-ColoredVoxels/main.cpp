@@ -441,17 +441,17 @@ void update()
 	vkUnmapMemory(renderer.m_device, renderables[0].vertexBuffer.mem);
 */
 
-	//if (frame % 25 == 0)
-	//{
-	//	blockGroup.generateTestChunk((double)frame / 200);
-	//	worker.workUpdate(renderer.m_device, renderables[0], blockGroup);
+	if (frame % 25 == 0)
+	{
+		blockGroup.generateTestChunk((double)frame / 200);
+		worker.workUpdate(renderer.m_device, renderables[0], blockGroup);
 
-	//	blockGroup.generateTestChunk((double)frame / 400);
-	//	worker.workUpdate(renderer.m_device, renderables[1], blockGroup);
-	//}
+		blockGroup.generateTestChunk((double)frame / 400);
+		worker.workUpdate(renderer.m_device, renderables[1], blockGroup);
+	}
 
-	renderables[0].UpdatePosition(   5 +   cos((double)frame / 300)  * 5, -20, -40);
-	renderables[1].UpdatePosition( -37 + (-cos((double)frame / 300)) * 5, -20, -40);
+	renderables[0].UpdatePosition(   5 +   cos((double)frame / 300)  * 5, -20, -60);
+	renderables[1].UpdatePosition( -37 + (-cos((double)frame / 300)) * 5, -20, -60);
 
 	QueryPerformanceCounter(&tNow);
 	fps = 1.000 / ((tNow.QuadPart - tPrev.QuadPart) * 1.0 / tC.QuadPart);

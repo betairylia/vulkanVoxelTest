@@ -152,7 +152,7 @@ void VulkanRenderer::InitRenderChain(
 		false, m_device, m_GPUs[0], m_memoryProperties,
 		m_cmdBuffer, m_queue,
 		width, height,
-		{}, { imagePool.position, imagePool.normal, imagePool.color },
+		{}, {imagePool.position, imagePool.normal, imagePool.color},
 		m_descPool, simpleSampler, m_viBinding, m_viAttribs,
 		vHelper::ReadFileString("mrt.vert").c_str(), vHelper::ReadFileString("mrt.frag").c_str(),
 		true);
@@ -1420,21 +1420,6 @@ void VulkanRenderer::renderByChain(vector<Renderable> renderableList)
 
 	for (i = 0;i < unitCount; i++)
 	{
-		//VkClearValue clear_values[10];
-
-		//for (j = 0;j < unitChain[i].oCount; j++)
-		//{
-		//	clear_values[j].color.float32[0] = 0.1f;
-		//	clear_values[j].color.float32[1] = 0.1f;
-		//	clear_values[j].color.float32[2] = 0.1f;
-		//	clear_values[j].color.float32[3] = 1.0f;
-		//}
-
-		//if (unitChain[i].hasDepth)
-		//{
-		//	clear_values[unitChain[i].oCount].depthStencil.depth = 1.0f;
-		//	clear_values[unitChain[i].oCount].depthStencil.stencil = 0;
-		//}
 
 		rp_begin.pClearValues = unitChain[i].clearValues;
 		rp_begin.clearValueCount = unitChain[i].clearCount;
@@ -1480,12 +1465,12 @@ void VulkanRenderer::renderByChain(vector<Renderable> renderableList)
 			for (j = 0; j < renderableList.size(); j++)
 			{
 				vkCmdBindDescriptorSets(m_cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-					unitChain[i].layout.pipelineLayout, 0, renderableList[i].descSet.descSetCount,
-					renderableList[i].descSet.data(), 0, NULL);
+					unitChain[i].layout.pipelineLayout, 0, renderableList[j].descSet.descSetCount,
+					renderableList[j].descSet.data(), 0, NULL);
 
-				vkCmdBindVertexBuffers(m_cmdBuffer, 0, 1, &renderableList[i].vertexBuffer.buf, offsets);
-				vkCmdBindIndexBuffer(m_cmdBuffer, renderableList[i].indexBuffer.buf, 0, VK_INDEX_TYPE_UINT32);
-				vkCmdDrawIndexed(m_cmdBuffer, renderableList[i].indicesCount, 1, 0, 0, 0);
+				vkCmdBindVertexBuffers(m_cmdBuffer, 0, 1, &renderableList[j].vertexBuffer.buf, offsets);
+				vkCmdBindIndexBuffer(m_cmdBuffer, renderableList[j].indexBuffer.buf, 0, VK_INDEX_TYPE_UINT32);
+				vkCmdDrawIndexed(m_cmdBuffer, renderableList[j].indicesCount, 1, 0, 0, 0);
 			}
 		}
 

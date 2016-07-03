@@ -29,7 +29,7 @@ void RenderUnit::init(bool isPostEffect, VkDevice device, VkPhysicalDevice gpu, 
 	int oSize = outputImageList.size(), iSize = inputImageList.size();
 	iCount = iSize;
 	oCount = oSize;
-	clearCount = oSize + useDepth ? 1 : 0;
+	clearCount = oSize + (useDepth ? 1 : 0);
 	hasDepth = useDepth;
 
 	//s1. set desc set & pipeline layout
@@ -174,7 +174,7 @@ void RenderUnit::initAsLastUnit(bool isPostEffect, VkDevice device, VkPhysicalDe
 	int iSize = inputImageList.size();
 	iCount = iSize;
 	oCount = 1;
-	clearCount = 1 + useDepth ? 1 : 0;
+	clearCount = 1 + (useDepth ? 1 : 0);
 	hasDepth = useDepth;
 
 	//s1. set desc set & pipeline layout
