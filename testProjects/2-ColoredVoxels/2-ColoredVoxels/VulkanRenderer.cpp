@@ -210,6 +210,9 @@ void VulkanRenderer::InitRenderChain(
 	screenAlignedQuad.SetVertexBuffer(m_memoryProperties, vertexData, vdataSize, vdataStride, m_viBinding, m_viAttribs);
 	screenAlignedQuad.SetIndexBuffer(m_memoryProperties, indexData, idataSize, idataStride);
 	screenAlignedQuad.SetScreenQuad(m_memoryProperties);
+
+	initViewports(width, height, m_cmdBuffer, m_viewport);
+	initScissors(width, height, m_cmdBuffer, m_scissor);
 }
 
 const char * VulkanRenderer::GetRawTextFromFile(const char * fileName)
@@ -1417,23 +1420,23 @@ void VulkanRenderer::renderByChain(vector<Renderable> renderableList)
 
 	for (i = 0;i < unitCount; i++)
 	{
-		VkClearValue clear_values[10];
+		//VkClearValue clear_values[10];
 
-		for (j = 0;j < unitChain[i].oCount; j++)
-		{
-			clear_values[j].color.float32[0] = 0.1f;
-			clear_values[j].color.float32[1] = 0.1f;
-			clear_values[j].color.float32[2] = 0.1f;
-			clear_values[j].color.float32[3] = 1.0f;
-		}
+		//for (j = 0;j < unitChain[i].oCount; j++)
+		//{
+		//	clear_values[j].color.float32[0] = 0.1f;
+		//	clear_values[j].color.float32[1] = 0.1f;
+		//	clear_values[j].color.float32[2] = 0.1f;
+		//	clear_values[j].color.float32[3] = 1.0f;
+		//}
 
-		if (unitChain[i].hasDepth)
-		{
-			clear_values[unitChain[i].oCount].depthStencil.depth = 1.0f;
-			clear_values[unitChain[i].oCount].depthStencil.stencil = 0;
-		}
+		//if (unitChain[i].hasDepth)
+		//{
+		//	clear_values[unitChain[i].oCount].depthStencil.depth = 1.0f;
+		//	clear_values[unitChain[i].oCount].depthStencil.stencil = 0;
+		//}
 
-		rp_begin.pClearValues = clear_values;
+		rp_begin.pClearValues = unitChain[i].clearValues;
 		rp_begin.clearValueCount = unitChain[i].clearCount;
 
 		rp_begin.renderPass = unitChain[i].renderPass;
@@ -1459,39 +1462,32 @@ void VulkanRenderer::renderByChain(vector<Renderable> renderableList)
 			unitChain[i].layout.pipelineLayout, 1, screenAlignedQuad.descSet.descSetCount,
 			screenAlignedQuad.descSet.data(), 0, NULL);
 
-		vkCmdBindDescriptorSets(m_cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-			unitChain[i].layout.pipelineLayout, 0, screenAlignedQuad.descSet.descSetCount,
-			screenAlignedQuad.descSet.data(), 0, NULL);
-
-		initViewports(width, height, m_cmdBuffer, m_viewport);
-		initScissors(width, height, m_cmdBuffer, m_scissor);
-
 		const VkDeviceSize offsets[1] = { 0 };
 
-		//if (unitChain[i].drawScreenQuad == true)
-		//{
-		//	//draw a screen-aligned quad
-		//	vkCmdBindDescriptorSets(m_cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-		//		unitChain[i].layout.pipelineLayout, 0, screenAlignedQuad.descSet.descSetCount,
-		//		screenAlignedQuad.descSet.data(), 0, NULL);
+		if (unitChain[i].drawScreenQuad == true)
+		{
+			//draw a screen-aligned quad
+			vkCmdBindDescriptorSets(m_cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+				unitChain[i].layout.pipelineLayout, 0, screenAlignedQuad.descSet.descSetCount,
+				screenAlignedQuad.descSet.data(), 0, NULL);
 
-		//	vkCmdBindVertexBuffers(m_cmdBuffer, 0, 1, &screenAlignedQuad.vertexBuffer.buf, offsets);
-		//	vkCmdBindIndexBuffer(m_cmdBuffer, screenAlignedQuad.indexBuffer.buf, 0, VK_INDEX_TYPE_UINT32);
-		//	vkCmdDrawIndexed(m_cmdBuffer, 6, 1, 0, 0, 0);
-		//}
-		//else
-		//{
-		//	for (j = 0; j < renderableList.size(); j++)
-		//	{
-		//		vkCmdBindDescriptorSets(m_cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-		//			unitChain[i].layout.pipelineLayout, 0, renderableList[i].descSet.descSetCount,
-		//			renderableList[i].descSet.data(), 0, NULL);
+			vkCmdBindVertexBuffers(m_cmdBuffer, 0, 1, &screenAlignedQuad.vertexBuffer.buf, offsets);
+			vkCmdBindIndexBuffer(m_cmdBuffer, screenAlignedQuad.indexBuffer.buf, 0, VK_INDEX_TYPE_UINT32);
+			vkCmdDrawIndexed(m_cmdBuffer, 6, 1, 0, 0, 0);
+		}
+		else
+		{
+			for (j = 0; j < renderableList.size(); j++)
+			{
+				vkCmdBindDescriptorSets(m_cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+					unitChain[i].layout.pipelineLayout, 0, renderableList[i].descSet.descSetCount,
+					renderableList[i].descSet.data(), 0, NULL);
 
-		//		vkCmdBindVertexBuffers(m_cmdBuffer, 0, 1, &renderableList[i].vertexBuffer.buf, offsets);
-		//		vkCmdBindIndexBuffer(m_cmdBuffer, renderableList[i].indexBuffer.buf, 0, VK_INDEX_TYPE_UINT32);
-		//		vkCmdDrawIndexed(m_cmdBuffer, renderableList[i].indicesCount, 1, 0, 0, 0);
-		//	}
-		//}
+				vkCmdBindVertexBuffers(m_cmdBuffer, 0, 1, &renderableList[i].vertexBuffer.buf, offsets);
+				vkCmdBindIndexBuffer(m_cmdBuffer, renderableList[i].indexBuffer.buf, 0, VK_INDEX_TYPE_UINT32);
+				vkCmdDrawIndexed(m_cmdBuffer, renderableList[i].indicesCount, 1, 0, 0, 0);
+			}
+		}
 
 		vkCmdEndRenderPass(m_cmdBuffer);
 	}

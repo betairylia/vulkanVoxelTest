@@ -441,14 +441,14 @@ void update()
 	vkUnmapMemory(renderer.m_device, renderables[0].vertexBuffer.mem);
 */
 
-	if (frame % 25 == 0)
-	{
-		blockGroup.generateTestChunk((double)frame / 200);
-		worker.workUpdate(renderer.m_device, renderables[0], blockGroup);
+	//if (frame % 25 == 0)
+	//{
+	//	blockGroup.generateTestChunk((double)frame / 200);
+	//	worker.workUpdate(renderer.m_device, renderables[0], blockGroup);
 
-		blockGroup.generateTestChunk((double)frame / 400);
-		worker.workUpdate(renderer.m_device, renderables[1], blockGroup);
-	}
+	//	blockGroup.generateTestChunk((double)frame / 400);
+	//	worker.workUpdate(renderer.m_device, renderables[1], blockGroup);
+	//}
 
 	renderables[0].UpdatePosition(   5 +   cos((double)frame / 300)  * 5, -20, -40);
 	renderables[1].UpdatePosition( -37 + (-cos((double)frame / 300)) * 5, -20, -40);
@@ -496,10 +496,6 @@ int main(int argc, char *argv[])
 
 	renderer.BeginCommandBuffer(renderer.m_cmdBuffer);
 
-	renderer.InitRenderChain(
-		quadVert, sizeof(quadVert), sizeof(quadVert[0]),
-		quadIndex, sizeof(quadIndex), sizeof(quadIndex[0]));
-
 	//GenerateNewBuffers(0);
 
 	layout.m_device = renderer.m_device;
@@ -531,6 +527,10 @@ int main(int argc, char *argv[])
 	blockGroup.generateTestChunk();
 	worker.workUpdate(renderer.m_device, renderables[0], blockGroup);
 	worker.workUpdate(renderer.m_device, renderables[1], blockGroup);
+
+	renderer.InitRenderChain(
+		quadVert, sizeof(quadVert), sizeof(quadVert[0]),
+		quadIndex, sizeof(quadIndex), sizeof(quadIndex[0]));
 
 	//pass.SetBase(renderer.m_device, renderer.m_GPUs[0], renderer.m_memoryProperties, renderer.m_cmdBuffer, renderer.m_queue, width, height);
 	//pass.initPass();

@@ -70,6 +70,8 @@ public:
 
 	GraphicsImage depth;
 
+	VkClearValue clearValues[10];
+
 	int width, height;
 };
 

@@ -58,6 +58,11 @@ void RenderUnit::init(bool isPostEffect, VkDevice device, VkPhysicalDevice gpu, 
 
 		color_reference[i].attachment = i;
 		color_reference[i].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+		clearValues[i].color.float32[0] = 0.1f;
+		clearValues[i].color.float32[1] = 0.1f;
+		clearValues[i].color.float32[2] = 0.1f;
+		clearValues[i].color.float32[3] = 1.0f;
 	}
 
 	if (useDepth)
@@ -82,6 +87,9 @@ void RenderUnit::init(bool isPostEffect, VkDevice device, VkPhysicalDevice gpu, 
 
 		depth_reference.attachment = oSize;
 		depth_reference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+		clearValues[oSize].depthStencil.depth = 1.0f;
+		clearValues[oSize].depthStencil.stencil = 0;
 	}
 
 	VkSubpassDescription subpass[1];
@@ -194,6 +202,11 @@ void RenderUnit::initAsLastUnit(bool isPostEffect, VkDevice device, VkPhysicalDe
 	color_reference[0].attachment = 0;
 	color_reference[0].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
+	clearValues[0].color.float32[0] = 0.1f;
+	clearValues[0].color.float32[1] = 0.1f;
+	clearValues[0].color.float32[2] = 0.1f;
+	clearValues[0].color.float32[3] = 1.0f;
+
 	if (useDepth)
 	{
 		vHelper::createImage(
@@ -216,6 +229,9 @@ void RenderUnit::initAsLastUnit(bool isPostEffect, VkDevice device, VkPhysicalDe
 
 		depth_reference.attachment = 1;
 		depth_reference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+		clearValues[1].depthStencil.depth = 1.0f;
+		clearValues[1].depthStencil.stencil = 0;
 	}
 
 	VkSubpassDescription subpass[1];
