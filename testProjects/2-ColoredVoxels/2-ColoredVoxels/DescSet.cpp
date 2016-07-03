@@ -47,6 +47,49 @@ void DescSet::CreateDescriptorSet(vector<VkDescriptorSetLayout>& desc_layout, Un
 	vkUpdateDescriptorSets(m_device, 1, writes, 0, NULL);
 }
 
+void DescSet::CreateDescriptorSetPassScale(VkDescriptorSetLayout & desc_layout, VkSampler sampler, std::vector<GraphicsImage> inputImageList, VkImageLayout imgLayout)
+{
+	VkResult res;
+	int i, iSize = inputImageList.size();
+
+	VkDescriptorSetAllocateInfo alloc_info[1];
+	alloc_info[0].sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	alloc_info[0].pNext = NULL;
+	alloc_info[0].descriptorPool = m_descPool;
+	alloc_info[0].descriptorSetCount = 1;
+	alloc_info[0].pSetLayouts = &desc_layout;
+
+	set.resize(1);
+	res =
+		vkAllocateDescriptorSets(m_device, alloc_info, set.data());
+	assert(res == VK_SUCCESS);
+
+	VkDescriptorImageInfo imgInfo[10];
+	for (i = 0; i < iSize; i++)
+	{
+		imgInfo[i].imageLayout = imgLayout;
+		imgInfo[i].imageView = inputImageList[i].view;
+		imgInfo[i].sampler = sampler;
+	}
+
+	VkWriteDescriptorSet writes[10];
+
+	for (i = 0;i < iSize;i++)
+	{
+		writes[i] = {};
+		writes[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		writes[i].pNext = NULL;
+		writes[i].dstSet = set[0];
+		writes[i].descriptorCount = 1;
+		writes[i].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		writes[i].pImageInfo = &imgInfo[i];
+		writes[i].dstArrayElement = 0;
+		writes[i].dstBinding = i;
+	}
+
+	vkUpdateDescriptorSets(m_device, iSize, writes, 0, NULL);
+}
+
 void DescSet::CreateDescriptorSetIA(vector<VkDescriptorSetLayout>& desc_layout, UniformBuffer & uniform_data, VkSampler sampler, VkImageView* views, VkImageLayout imgLayout)
 {
 	VkResult res;

@@ -180,3 +180,15 @@ void vHelper::createImage(int width, int height, VkFormat format, int usage, Gra
 	res = vkCreateImageView(device, &imageView, nullptr, &attachment->view);
 	assert(res == VK_SUCCESS);
 }
+
+std::string vHelper::ReadFileString(std::string fileName)
+{
+	using namespace std;
+
+	ifstream file(fileName, ios::in);
+	istreambuf_iterator<char> beg(file), end;
+	string strData(beg, end);
+	file.close();
+
+	return strData;
+}

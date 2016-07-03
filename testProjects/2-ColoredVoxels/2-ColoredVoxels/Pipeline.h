@@ -27,6 +27,11 @@ public:
 		VkPipelineLayout pipeline_layout, VkPipelineShaderStageCreateInfo * shaderStages, VkRenderPass render_pass,
 		int attachmentCount, int subpass);
 
+	void initPipelineForUnit(
+		VkVertexInputBindingDescription & vi_binding, VkVertexInputAttributeDescription * vi_attribs,
+		VkPipelineLayout pipeline_layout, VkPipelineShaderStageCreateInfo * shaderStages, VkRenderPass render_pass,
+		int outputCount, bool useDepth = false);
+
 	void createPipeline();
 
 	void InitShader(const char * vertShaderText, const char * fragShaderText);
@@ -40,6 +45,17 @@ public:
 	VkPipeline pipelineObj;
 	VkPipelineCache cache;
 	VkPipelineShaderStageCreateInfo info[2];
+	VkPipelineCacheCreateInfo pipelineCachei;
+	VkDynamicState dynamicStateEnables[VK_DYNAMIC_STATE_RANGE_SIZE];
+	VkPipelineDynamicStateCreateInfo dynamicState = {};
+	VkPipelineVertexInputStateCreateInfo vi;
+	VkPipelineInputAssemblyStateCreateInfo ia;
+	VkPipelineRasterizationStateCreateInfo rs;
+	VkPipelineColorBlendStateCreateInfo cb;
+	VkPipelineColorBlendAttachmentState att_state[10];
+	VkPipelineViewportStateCreateInfo vp = {};
+	VkPipelineDepthStencilStateCreateInfo ds;
+	VkPipelineMultisampleStateCreateInfo ms;
 
 	VkDevice m_device;
 };

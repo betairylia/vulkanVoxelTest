@@ -92,6 +92,126 @@ void VulkanRenderer::init()
 	m_prepared = true;
 }
 
+void VulkanRenderer::InitRenderChain(
+	const void * vertexData, uint32_t vdataSize, uint32_t vdataStride,
+	const void *  indexData, uint32_t idataSize, uint32_t idataStride)
+{
+	//we need: position, normal, color, combined(SSAO), blurX, blurY, DOF(swapChainImage) (6 new images total)
+	//chain:	(buffer)			=>	position, normal, color
+	//			pos,norm,col		=>	combined(SSAO)
+	//			combined, norm		=>	blurX
+	//			blurX, norm			=>	blurY
+	//			blurY, position		=>	DOF(swapChain)
+
+	//init images
+	vHelper::createImage(
+		width, height,
+		VK_FORMAT_R16G16B16A16_SFLOAT,
+		VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+		&imagePool.position,
+		m_cmdBuffer, m_queue, m_device, m_memoryProperties);
+
+	vHelper::createImage(
+		width, height,
+		VK_FORMAT_R16G16B16A16_SFLOAT,
+		VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+		&imagePool.normal,
+		m_cmdBuffer, m_queue, m_device, m_memoryProperties);
+
+	vHelper::createImage(
+		width, height,
+		VK_FORMAT_R16G16B16A16_SFLOAT,
+		VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+		&imagePool.color,
+		m_cmdBuffer, m_queue, m_device, m_memoryProperties);
+
+	vHelper::createImage(
+		width, height,
+		VK_FORMAT_R16G16B16A16_SFLOAT,
+		VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+		&imagePool.combined_AO,
+		m_cmdBuffer, m_queue, m_device, m_memoryProperties);
+
+	vHelper::createImage(
+		width, height,
+		VK_FORMAT_R16G16B16A16_SFLOAT,
+		VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+		&imagePool.blurX_AO,
+		m_cmdBuffer, m_queue, m_device, m_memoryProperties);
+
+	vHelper::createImage(
+		width, height,
+		VK_FORMAT_R16G16B16A16_SFLOAT,
+		VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+		&imagePool.blurY_AO,
+		m_cmdBuffer, m_queue, m_device, m_memoryProperties);
+
+	//init units
+	RenderUnit gBufferWorker;
+	gBufferWorker.init(
+		false, m_device, m_GPUs[0], m_memoryProperties,
+		m_cmdBuffer, m_queue,
+		width, height,
+		{}, { imagePool.position, imagePool.normal, imagePool.color },
+		m_descPool, simpleSampler, m_viBinding, m_viAttribs,
+		vHelper::ReadFileString("mrt.vert").c_str(), vHelper::ReadFileString("mrt.frag").c_str(),
+		true);
+	unitChain.push_back(gBufferWorker);
+
+	RenderUnit ssaoCombiner;
+	ssaoCombiner.init(
+		true, m_device, m_GPUs[0], m_memoryProperties,
+		m_cmdBuffer, m_queue,
+		width, height,
+		{ imagePool.position, imagePool.normal, imagePool.color }, { imagePool.combined_AO },
+		m_descPool, simpleSampler, m_viBinding, m_viAttribs,
+		vHelper::ReadFileString("SQuad.vert").c_str(), vHelper::ReadFileString("ssao.frag").c_str(),
+		false);
+	unitChain.push_back(ssaoCombiner);
+
+	RenderUnit blurX;
+	blurX.init(
+		true, m_device, m_GPUs[0], m_memoryProperties,
+		m_cmdBuffer, m_queue,
+		width, height,
+		{ imagePool.combined_AO, imagePool.normal }, { imagePool.blurX_AO },
+		m_descPool, simpleSampler, m_viBinding, m_viAttribs,
+		vHelper::ReadFileString("SQuad.vert").c_str(), vHelper::ReadFileString("blurX.frag").c_str(),
+		false);
+	unitChain.push_back(blurX);
+
+	RenderUnit blurY;
+	blurY.init(
+		true, m_device, m_GPUs[0], m_memoryProperties,
+		m_cmdBuffer, m_queue,
+		width, height,
+		{ imagePool.blurX_AO, imagePool.normal }, { imagePool.blurY_AO },
+		m_descPool, simpleSampler, m_viBinding, m_viAttribs,
+		vHelper::ReadFileString("SQuad.vert").c_str(), vHelper::ReadFileString("blurY.frag").c_str(),
+		false);
+	unitChain.push_back(blurY);
+
+	RenderUnit DOF;
+	DOF.initAsLastUnit(
+		true, m_device, m_GPUs[0], m_memoryProperties,
+		m_cmdBuffer, m_queue,
+		width, height,
+		{ imagePool.blurY_AO, imagePool.position },
+		m_swapChainImgBuffer.data(), m_swapChainImageCount, m_colorImgFormat,
+		m_descPool, simpleSampler, m_viBinding, m_viAttribs,
+		vHelper::ReadFileString("SQuad.vert").c_str(), vHelper::ReadFileString("DOF.frag").c_str(),
+		false);
+	unitChain.push_back(DOF);
+
+	unitCount = unitChain.size();
+
+	screenAlignedQuad.init(m_device, m_descPool, { gBufferWorker.layout.descLayout[0] }, m_memoryProperties);
+	//screenAlignedQuad.initIA(m_device, m_descPool, layoutIA.descLayout, m_memoryProperties, simpleSampler, views, VK_IMAGE_LAYOUT_GENERAL);
+	screenAlignedQuad.SetVertexBuffer(m_memoryProperties, vertexData, vdataSize, vdataStride, m_viBinding, m_viAttribs);
+	screenAlignedQuad.SetIndexBuffer(m_memoryProperties, indexData, idataSize, idataStride);
+	screenAlignedQuad.SetScreenQuad(m_memoryProperties);
+}
+
 const char * VulkanRenderer::GetRawTextFromFile(const char * fileName)
 {
 	return "";
@@ -958,7 +1078,7 @@ VkDescriptorPool VulkanRenderer::CreateDescriptorPool(VkDevice device)
 	type_count[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	type_count[0].descriptorCount = 1;
 
-	type_count[1].type = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+	type_count[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	type_count[1].descriptorCount = 5;
 
 	VkDescriptorPoolCreateInfo descriptor_pool = {};
@@ -1188,6 +1308,193 @@ void VulkanRenderer::render(
 	vkCmdDrawIndexed(m_cmdBuffer, 6, 1, 0, 0, 0);
 
 	vkCmdEndRenderPass(m_cmdBuffer);
+
+	VkImageMemoryBarrier prePresentBarrier = {};
+	prePresentBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	prePresentBarrier.pNext = NULL;
+	prePresentBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	prePresentBarrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+	prePresentBarrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	prePresentBarrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+	prePresentBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	prePresentBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	prePresentBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	prePresentBarrier.subresourceRange.baseMipLevel = 0;
+	prePresentBarrier.subresourceRange.levelCount = 1;
+	prePresentBarrier.subresourceRange.baseArrayLayer = 0;
+	prePresentBarrier.subresourceRange.layerCount = 1;
+	prePresentBarrier.image = m_swapChainImgBuffer[m_currentBuffer].image;
+	vkCmdPipelineBarrier(m_cmdBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+		VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, NULL, 0,
+		NULL, 1, &prePresentBarrier);
+
+	res = vkEndCommandBuffer(m_cmdBuffer);
+	const VkCommandBuffer cmd_bufs[] = { m_cmdBuffer };
+	VkFenceCreateInfo fenceInfo;
+	VkFence drawFence;
+	fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+	fenceInfo.pNext = NULL;
+	fenceInfo.flags = 0;
+	vkCreateFence(m_device, &fenceInfo, NULL, &drawFence);
+
+	VkPipelineStageFlags pipe_stage_flags =
+		VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+	VkSubmitInfo submit_info[1] = {};
+	submit_info[0].pNext = NULL;
+	submit_info[0].sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submit_info[0].waitSemaphoreCount = 1;
+	submit_info[0].pWaitSemaphores = &presentCompleteSemaphore;
+	submit_info[0].pWaitDstStageMask = &pipe_stage_flags;
+	submit_info[0].commandBufferCount = 1;
+	submit_info[0].pCommandBuffers = cmd_bufs;
+	submit_info[0].signalSemaphoreCount = 0;
+	submit_info[0].pSignalSemaphores = NULL;
+
+	/* Queue the command buffer for execution */
+	res = vkQueueSubmit(m_queue, 1, submit_info, drawFence);
+	assert(res == VK_SUCCESS);
+
+	/* Now present the image in the window */
+
+	VkPresentInfoKHR present;
+	present.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+	present.pNext = NULL;
+	present.swapchainCount = 1;
+	present.pSwapchains = &m_swapChain;
+	present.pImageIndices = &m_currentBuffer;
+	present.pWaitSemaphores = NULL;
+	present.waitSemaphoreCount = 0;
+	present.pResults = NULL;
+
+	/* Make sure command buffer is finished before presenting */
+	do {
+		res =
+			vkWaitForFences(m_device, 1, &drawFence, VK_TRUE, fenceTimeout);
+	} while (res == VK_TIMEOUT);
+
+	assert(res == VK_SUCCESS);
+	res = vkQueuePresentKHR(m_queue, &present);
+	assert(res == VK_SUCCESS);
+}
+
+void VulkanRenderer::renderByChain(vector<Renderable> renderableList)
+{
+	BeginCommandBuffer(m_cmdBuffer);
+
+	VkResult res;
+	int i, j;
+
+	VkSemaphore presentCompleteSemaphore;
+	VkSemaphoreCreateInfo presentCompleteSemaphoreCreateInfo;
+	presentCompleteSemaphoreCreateInfo.sType =
+		VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+	presentCompleteSemaphoreCreateInfo.pNext = NULL;
+	presentCompleteSemaphoreCreateInfo.flags = 0;
+
+	res = vkCreateSemaphore(m_device, &presentCompleteSemaphoreCreateInfo,
+		NULL, &presentCompleteSemaphore);
+	assert(res == VK_SUCCESS);
+
+	// Get the index of the next available swapchain image:
+	res = vkAcquireNextImageKHR(m_device, m_swapChain, UINT64_MAX,
+		presentCompleteSemaphore, VK_NULL_HANDLE,
+		&m_currentBuffer);
+	// TODO: Deal with the VK_SUBOPTIMAL_KHR and VK_ERROR_OUT_OF_DATE_KHR
+	// return codes
+	assert(res == VK_SUCCESS);
+
+	vHelper::SetImageLayout(m_cmdBuffer, m_queue, m_swapChainImgBuffer[m_currentBuffer].image,
+		VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED,//¥Ê“…
+		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+	VkRenderPassBeginInfo rp_begin;
+	rp_begin.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+	rp_begin.pNext = NULL;
+	rp_begin.renderArea.offset.x = 0;
+	rp_begin.renderArea.offset.y = 0;
+	rp_begin.renderArea.extent.width = width;
+	rp_begin.renderArea.extent.height = height;
+
+	for (i = 0;i < unitCount; i++)
+	{
+		VkClearValue clear_values[10];
+
+		for (j = 0;j < unitChain[i].oCount; j++)
+		{
+			clear_values[j].color.float32[0] = 0.1f;
+			clear_values[j].color.float32[1] = 0.1f;
+			clear_values[j].color.float32[2] = 0.1f;
+			clear_values[j].color.float32[3] = 1.0f;
+		}
+
+		if (unitChain[i].hasDepth)
+		{
+			clear_values[unitChain[i].oCount].depthStencil.depth = 1.0f;
+			clear_values[unitChain[i].oCount].depthStencil.stencil = 0;
+		}
+
+		rp_begin.pClearValues = clear_values;
+		rp_begin.clearValueCount = unitChain[i].clearCount;
+
+		rp_begin.renderPass = unitChain[i].renderPass;
+		
+		if (unitChain[i].asLast == true)
+		{
+			rp_begin.framebuffer = unitChain[i].framebuffers[m_currentBuffer];
+		}
+		else
+		{
+			rp_begin.framebuffer = unitChain[i].framebuffers[0];
+		}
+
+		vkCmdBeginRenderPass(m_cmdBuffer, &rp_begin, VK_SUBPASS_CONTENTS_INLINE);
+
+		vkCmdBindPipeline(m_cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, unitChain[i].pipeline.pipelineObj);
+
+		vkCmdBindDescriptorSets(m_cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+			unitChain[i].layout.pipelineLayout, 2, unitChain[i].descSet.descSetCount,
+			unitChain[i].descSet.data(), 0, NULL);
+
+		vkCmdBindDescriptorSets(m_cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+			unitChain[i].layout.pipelineLayout, 1, screenAlignedQuad.descSet.descSetCount,
+			screenAlignedQuad.descSet.data(), 0, NULL);
+
+		vkCmdBindDescriptorSets(m_cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+			unitChain[i].layout.pipelineLayout, 0, screenAlignedQuad.descSet.descSetCount,
+			screenAlignedQuad.descSet.data(), 0, NULL);
+
+		initViewports(width, height, m_cmdBuffer, m_viewport);
+		initScissors(width, height, m_cmdBuffer, m_scissor);
+
+		const VkDeviceSize offsets[1] = { 0 };
+
+		//if (unitChain[i].drawScreenQuad == true)
+		//{
+		//	//draw a screen-aligned quad
+		//	vkCmdBindDescriptorSets(m_cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+		//		unitChain[i].layout.pipelineLayout, 0, screenAlignedQuad.descSet.descSetCount,
+		//		screenAlignedQuad.descSet.data(), 0, NULL);
+
+		//	vkCmdBindVertexBuffers(m_cmdBuffer, 0, 1, &screenAlignedQuad.vertexBuffer.buf, offsets);
+		//	vkCmdBindIndexBuffer(m_cmdBuffer, screenAlignedQuad.indexBuffer.buf, 0, VK_INDEX_TYPE_UINT32);
+		//	vkCmdDrawIndexed(m_cmdBuffer, 6, 1, 0, 0, 0);
+		//}
+		//else
+		//{
+		//	for (j = 0; j < renderableList.size(); j++)
+		//	{
+		//		vkCmdBindDescriptorSets(m_cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+		//			unitChain[i].layout.pipelineLayout, 0, renderableList[i].descSet.descSetCount,
+		//			renderableList[i].descSet.data(), 0, NULL);
+
+		//		vkCmdBindVertexBuffers(m_cmdBuffer, 0, 1, &renderableList[i].vertexBuffer.buf, offsets);
+		//		vkCmdBindIndexBuffer(m_cmdBuffer, renderableList[i].indexBuffer.buf, 0, VK_INDEX_TYPE_UINT32);
+		//		vkCmdDrawIndexed(m_cmdBuffer, renderableList[i].indicesCount, 1, 0, 0, 0);
+		//	}
+		//}
+
+		vkCmdEndRenderPass(m_cmdBuffer);
+	}
 
 	VkImageMemoryBarrier prePresentBarrier = {};
 	prePresentBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;

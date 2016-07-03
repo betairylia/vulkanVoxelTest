@@ -162,6 +162,7 @@
     <ClInclude Include="PostEffectTestDOFPass.h" />
     <ClInclude Include="Renderable.h" />
     <ClInclude Include="RenderPass.h" />
+    <ClInclude Include="RenderUnit.h" />
     <ClInclude Include="simpleTestPass.h" />
     <ClInclude Include="structs.h" />
     <ClInclude Include="vHelper.h" />
@@ -179,6 +180,7 @@
     <ClCompile Include="PostEffectTestDOFPass.cpp" />
     <ClCompile Include="Renderable.cpp" />
     <ClCompile Include="RenderPass.cpp" />
+    <ClCompile Include="RenderUnit.cpp" />
     <ClCompile Include="simpleTestPass.cpp" />
     <ClCompile Include="vHelper.cpp" />
     <ClCompile Include="VulkanRenderer.cpp" />

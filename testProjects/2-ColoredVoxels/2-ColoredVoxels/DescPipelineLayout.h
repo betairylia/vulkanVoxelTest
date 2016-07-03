@@ -19,9 +19,12 @@ class DescPipelineLayout
 public:
 	DescPipelineLayout();
 	~DescPipelineLayout();
+	
 	void init();
-
 	void initIA();
+
+	//count max = 10
+	void initWithCount(int imgCount);
 
 	vector<VkDescriptorSetLayout> descLayout;
 	VkPipelineLayout pipelineLayout;

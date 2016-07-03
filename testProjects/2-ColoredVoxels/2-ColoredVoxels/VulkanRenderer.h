@@ -48,6 +48,7 @@
 #include "Renderable.h"
 #include "DescPipelineLayout.h"
 #include "RenderPass.h"
+#include "RenderUnit.h"
 
 using namespace std;
 
@@ -93,6 +94,14 @@ public:
 	VkImage CreateEmptyImage(uint32_t width, uint32_t height, VkFormat format);
 	
 	void render(DescPipelineLayout layout, RenderPass pass, RenderPass passDOF, vector<Renderable> renderableList);
+	void renderByChain(vector<Renderable> renderableList);
+
+	int unitCount;
+	SRImagePool imagePool;
+	vector<RenderUnit> unitChain;
+	void InitRenderChain(
+		const void * vertexData, uint32_t vdataSize, uint32_t vdataStride,
+		const void *  indexData, uint32_t idataSize, uint32_t idataStride);
 
 //private:
 	VkInstance m_instance;

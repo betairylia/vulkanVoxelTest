@@ -144,7 +144,7 @@ static const char *vertShaderScreenQuad =
 "}\n";
 
 //SSAO
-static const char *fragShaderScreenQuad =
+static const char *fragShaderScreenQuad1 =
 "#version 450\n"
 "#extension GL_ARB_separate_shader_objects : enable\n"
 "#extension GL_ARB_shading_language_420pack : enable\n"
@@ -158,7 +158,7 @@ static const char *fragShaderScreenQuad =
 "int selDist[8]  = int[](3, 2, 4, 7, 1, 6, 5, 0);\n"
 "float fSelAngle = 6.2831853 / sampleCount;\n"
 "float fSelDist  = 1.0 / sampleCount;\n"
-"float fScaler = 0.5;\n"
+"float fScaler = 0.3;\n"
 "float rand(vec2 co){\n"
 "    return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);\n"
 "}\n"
@@ -180,7 +180,52 @@ static const char *fragShaderScreenQuad =
 "        occ += fNorm * fDist;\n"
 "    }\n"
 "    occ = occ / sampleCount;\n"
-"    outColor = vec4(texture(samplerColor, uv).rgb * occ, 1.0);\n"
+"    //outColor = vec4(texture(samplerColor, uv).rgb * occ, 1.0);\n"
+"    outColor = vec4(occ, occ, occ, 1.0);\n"
+"}\n";
+
+//SSSAO
+static const char *fragShaderScreenQuad =
+"#version 450\n"
+"#extension GL_ARB_separate_shader_objects : enable\n"
+"#extension GL_ARB_shading_language_420pack : enable\n"
+"layout (binding = 1) uniform sampler2D samplerPosition;\n"
+"layout (binding = 2) uniform sampler2D samplerNormal;\n"
+"layout (binding = 3) uniform sampler2D samplerColor;\n"
+"layout (location = 0) in vec2 uv;\n"
+"layout (location = 0) out vec4 outColor;\n"
+"int sampleCount = 8;\n"
+"int selAngle[8] = int[](2, 4, 3, 7, 6, 5, 0, 1);\n"
+"int selDist[8]  = int[](3, 2, 4, 7, 1, 6, 5, 0);\n"
+"float fSelAngle = 6.2831853 / sampleCount;\n"
+"float fSelDist  = 1.0 / sampleCount;\n"
+"float fScaler = 0.8;\n"
+"float fRadius = 3.0;\n"
+"float rand(vec2 co){\n"
+"    return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);\n"
+"}\n"
+"void main() {\n"
+"    vec2 vSampleVector;\n"
+"    vec3 vPos = texture(samplerPosition, uv).xyz;\n"
+"    vec3 vNormal = texture(samplerNormal, uv).xyz;\n"
+"    float occ = 0.0;\n"
+"    for(int i = 0; i < sampleCount; ++i)\n"
+"    {\n"
+"        int n = selAngle[i];\n"
+"        int m = selDist[i];\n"
+"        vSampleVector = vec2(cos(fSelAngle * n), sin(fSelAngle * n)) * (fSelDist * (m + 1)) * fScaler / vPos.z;\n"
+"        float rAngle = 3.14159265 * rand(vPos.yx);\n"
+"        vSampleVector = mat2(cos(rAngle), -sin(rAngle), sin(rAngle), cos(rAngle)) * vSampleVector;\n"
+"        vec3 sPos = texture(samplerPosition, uv + vSampleVector).rgb;\n"
+"        vec3 sdPos = sPos - vPos;\n"
+"        float fAbsV = dot(sdPos, sdPos);\n"
+"        float fRes = 0;\n"
+"        fRes = max(0.0, 1.0 - sqrt(fAbsV) / fRadius) * max(0.0, dot(sdPos / sqrt(fAbsV), vNormal) - 0.01);\n"
+"        occ += fScaler * fRes;\n"
+"    }\n"
+"    occ = 1-(occ / sampleCount);\n"
+"    //outColor = vec4(texture(samplerColor, uv).rgb * occ, 1.0);\n"
+"    outColor = vec4(occ, occ, occ, 1.0);\n"
 "}\n";
 
 //DOF
@@ -194,8 +239,15 @@ static const char *fragShaderTestDOF =
 "layout (binding = 4) uniform sampler2D samplerResult;\n"
 "layout (location = 0) in vec2 uv;\n"
 "layout (location = 0) out vec4 outColor;\n"
+"vec2 invRes = vec2(1.0 / 140.0, 1.0 / 90.0);\n"
+"mat3 kernel9 = mat3(0.0751, 0.1238, 0.0751, 0.1238, 0.2042, 0.1238, 0.0751, 0.1238, 0.0751);\n"
 "void main() {\n"
-"   outColor = texture(samplerResult, uv);\n"
+"    int i, j;\n"
+"    vec4 sum = vec4(0.0, 0.0, 0.0, 0.0);vec2 nUV = vec2(0.0, 0.0);vec3 vNormal = texture(samplerNormal, uv).rgb;\n"
+"    for(i=-1;i<=1;++i){for(j=-1;j<=1;++j){nUV = uv + vec2(i, j) * invRes; if(dot(vNormal, texture(samplerNormal, nUV).rgb) > 0.9) sum += (texture(samplerResult,nUV)*kernel9[i+1][j+1]);}}\n"
+"    outColor = texture(samplerColor, uv) * sum;\n"
+"    //outColor = sum;\n"
+"    //outColor = texture(samplerResult, uv);\n"
 "}\n";
 
 bool m_prepared;
@@ -305,7 +357,8 @@ void InitWindow(int width, int height, string windowTitle)
 
 void render()
 {
-	renderer.render(layout, pass, passDOF, renderables);
+	//renderer.render(layout, pass, passDOF, renderables);
+	renderer.renderByChain(renderables);
 }
 
 void GenerateNewBuffers(int frame)
@@ -388,7 +441,7 @@ void update()
 	vkUnmapMemory(renderer.m_device, renderables[0].vertexBuffer.mem);
 */
 
-	if (frame % 5 == 0)
+	if (frame % 25 == 0)
 	{
 		blockGroup.generateTestChunk((double)frame / 200);
 		worker.workUpdate(renderer.m_device, renderables[0], blockGroup);
@@ -397,8 +450,8 @@ void update()
 		worker.workUpdate(renderer.m_device, renderables[1], blockGroup);
 	}
 
-	renderables[0].UpdatePosition(   5 +   cos((double)frame / 300)  * 5, -20, -70);
-	renderables[1].UpdatePosition( -37 + (-cos((double)frame / 300)) * 5, -20, -70);
+	renderables[0].UpdatePosition(   5 +   cos((double)frame / 300)  * 5, -20, -40);
+	renderables[1].UpdatePosition( -37 + (-cos((double)frame / 300)) * 5, -20, -40);
 
 	QueryPerformanceCounter(&tNow);
 	fps = 1.000 / ((tNow.QuadPart - tPrev.QuadPart) * 1.0 / tC.QuadPart);
@@ -422,7 +475,8 @@ static void run()
 	update();
 	render();
 
-	vkDeviceWaitIdle(renderer.m_device);
+	VkResult res = vkDeviceWaitIdle(renderer.m_device);
+	assert(res == VK_SUCCESS);
 }
 
 /*
@@ -442,13 +496,17 @@ int main(int argc, char *argv[])
 
 	renderer.BeginCommandBuffer(renderer.m_cmdBuffer);
 
+	renderer.InitRenderChain(
+		quadVert, sizeof(quadVert), sizeof(quadVert[0]),
+		quadIndex, sizeof(quadIndex), sizeof(quadIndex[0]));
+
 	//GenerateNewBuffers(0);
 
 	layout.m_device = renderer.m_device;
 	layout.init();
 
-	renderer.layoutIA.m_device = renderer.m_device;
-	renderer.layoutIA.initIA();
+	//renderer.layoutIA.m_device = renderer.m_device;
+	//renderer.layoutIA.initIA();
 
 	Renderable r;
 
@@ -474,47 +532,47 @@ int main(int argc, char *argv[])
 	worker.workUpdate(renderer.m_device, renderables[0], blockGroup);
 	worker.workUpdate(renderer.m_device, renderables[1], blockGroup);
 
-	pass.SetBase(renderer.m_device, renderer.m_GPUs[0], renderer.m_memoryProperties, renderer.m_cmdBuffer, renderer.m_queue, width, height);
-	pass.initPass();
+	//pass.SetBase(renderer.m_device, renderer.m_GPUs[0], renderer.m_memoryProperties, renderer.m_cmdBuffer, renderer.m_queue, width, height);
+	//pass.initPass();
 
-	passDOF.SetBase(renderer.m_device, renderer.m_GPUs[0], renderer.m_memoryProperties, renderer.m_cmdBuffer, renderer.m_queue, width, height);
-	passDOF.initPass(renderer.m_swapChainImgBuffer.data(), renderer.m_swapChainImageCount, renderer.m_colorImgFormat);
+	//passDOF.SetBase(renderer.m_device, renderer.m_GPUs[0], renderer.m_memoryProperties, renderer.m_cmdBuffer, renderer.m_queue, width, height);
+	//passDOF.initPass(renderer.m_swapChainImgBuffer.data(), renderer.m_swapChainImageCount, renderer.m_colorImgFormat);
 
-	//Screen quad
-	views[0] = pass.bufferImages.position.view;
-	views[1] = pass.bufferImages.normal.view;
-	views[2] = pass.bufferImages.color.view;
-	views[3] = pass.bufferImages.output.view;
-	renderer.screenAlignedQuad.initIA(renderer.m_device, renderer.m_descPool, renderer.layoutIA.descLayout, renderer.m_memoryProperties, renderer.simpleSampler, views, VK_IMAGE_LAYOUT_GENERAL);
-	renderer.screenAlignedQuad.SetVertexBuffer(renderer.m_memoryProperties, quadVert, sizeof(quadVert), sizeof(quadVert[0]), renderer.m_viBinding, renderer.m_viAttribs);
-	renderer.screenAlignedQuad.SetIndexBuffer(renderer.m_memoryProperties, quadIndex, sizeof(quadIndex), sizeof(quadIndex[0]));
-	renderer.screenAlignedQuad.SetScreenQuad(renderer.m_memoryProperties);
+	////Screen quad
+	//views[0] = pass.bufferImages.position.view;
+	//views[1] = pass.bufferImages.normal.view;
+	//views[2] = pass.bufferImages.color.view;
+	//views[3] = pass.bufferImages.output.view;
+	//renderer.screenAlignedQuad.initIA(renderer.m_device, renderer.m_descPool, renderer.layoutIA.descLayout, renderer.m_memoryProperties, renderer.simpleSampler, views, VK_IMAGE_LAYOUT_GENERAL);
+	//renderer.screenAlignedQuad.SetVertexBuffer(renderer.m_memoryProperties, quadVert, sizeof(quadVert), sizeof(quadVert[0]), renderer.m_viBinding, renderer.m_viAttribs);
+	//renderer.screenAlignedQuad.SetIndexBuffer(renderer.m_memoryProperties, quadIndex, sizeof(quadIndex), sizeof(quadIndex[0]));
+	//renderer.screenAlignedQuad.SetScreenQuad(renderer.m_memoryProperties);
 
-	//Pipeline A
-	pipelineGBuffer.m_device = renderer.m_device;
-	pipelineGBuffer.InitShader(vertShader, fragShader);
-	pipelineGBuffer.initPipeline(renderer.m_viBinding, renderer.m_viAttribs, layout.pipelineLayout, pipelineGBuffer.info, pass.renderPass, 3, 0);
+	////Pipeline A
+	//pipelineGBuffer.m_device = renderer.m_device;
+	//pipelineGBuffer.InitShader(vertShader, fragShader);
+	//pipelineGBuffer.initPipeline(renderer.m_viBinding, renderer.m_viAttribs, layout.pipelineLayout, pipelineGBuffer.info, pass.renderPass, 3, 0);
 
-	//Pipeline B
-	pipelineRendering.m_device = renderer.m_device;
-	pipelineRendering.InitShader(vertShaderScreenQuad, fragShaderScreenQuad);
-	pipelineRendering.initPipeline(renderer.m_viBinding, renderer.m_viAttribs, renderer.layoutIA.pipelineLayout, pipelineRendering.info, pass.renderPass, 1, 1);
-	
-	pass.subPassCount = 2;
-	pass.pipelines = (Pipeline*)malloc(sizeof(Pipeline) * 2);
-	
-	pass.pipelines[0] = pipelineGBuffer;
-	pass.pipelines[1] = pipelineRendering;
+	////Pipeline B
+	//pipelineRendering.m_device = renderer.m_device;
+	//pipelineRendering.InitShader(vertShaderScreenQuad, fragShaderScreenQuad);
+	//pipelineRendering.initPipeline(renderer.m_viBinding, renderer.m_viAttribs, renderer.layoutIA.pipelineLayout, pipelineRendering.info, pass.renderPass, 1, 1);
+	//
+	//pass.subPassCount = 2;
+	//pass.pipelines = (Pipeline*)malloc(sizeof(Pipeline) * 2);
+	//
+	//pass.pipelines[0] = pipelineGBuffer;
+	//pass.pipelines[1] = pipelineRendering;
 
-	//Pipeline DOF
-	pipelineDOF.m_device = renderer.m_device;
-	pipelineDOF.InitShader(vertShaderScreenQuad, fragShaderTestDOF);
-	pipelineDOF.initPipeline(renderer.m_viBinding, renderer.m_viAttribs, renderer.layoutIA.pipelineLayout, pipelineDOF.info, passDOF.renderPass, 1, 0);
+	////Pipeline DOF
+	//pipelineDOF.m_device = renderer.m_device;
+	//pipelineDOF.InitShader(vertShaderScreenQuad, fragShaderTestDOF);
+	//pipelineDOF.initPipeline(renderer.m_viBinding, renderer.m_viAttribs, renderer.layoutIA.pipelineLayout, pipelineDOF.info, passDOF.renderPass, 1, 0);
 
-	passDOF.subPassCount = 1;
-	passDOF.pipelines = (Pipeline*)malloc(sizeof(Pipeline));
+	//passDOF.subPassCount = 1;
+	//passDOF.pipelines = (Pipeline*)malloc(sizeof(Pipeline));
 
-	passDOF.pipelines[0] = pipelineDOF;
+	//passDOF.pipelines[0] = pipelineDOF;
 
 	//descSet.m_device = renderer.m_device;
 	//descSet.setDescPool(renderer.m_descPool);

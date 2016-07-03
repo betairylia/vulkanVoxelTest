@@ -28,6 +28,7 @@ public:
 	void setDescPool(VkDescriptorPool pool);
 	void CreateDescriptorSet(vector<VkDescriptorSetLayout>& desc_layout, UniformBuffer & uniform_data);	//TEST, UNIFORM ONLY
 
+	void CreateDescriptorSetPassScale(VkDescriptorSetLayout& desc_layout, VkSampler sampler, std::vector<GraphicsImage> inputImageList, VkImageLayout imgLayout);
 	void CreateDescriptorSetIA(vector<VkDescriptorSetLayout>& desc_layout, UniformBuffer & uniform_data, VkSampler sampler, VkImageView* views, VkImageLayout imgLayout);
 
 	vector<VkDescriptorSet> set;

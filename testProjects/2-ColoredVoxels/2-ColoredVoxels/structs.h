@@ -65,3 +65,7 @@ typedef struct _GraphicsImage {
 	VkImageView view;
 	VkFormat format;
 } GraphicsImage;
+
+typedef struct _SimpleRendererImagePool {
+	GraphicsImage position, normal, color, combined_AO, blurX_AO, blurY_AO;
+}SRImagePool;

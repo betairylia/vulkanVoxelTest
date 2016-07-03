@@ -9,6 +9,7 @@
 #include <gtc/matrix_transform.hpp>
 
 #include <iostream>
+#include <fstream>
 #include <cstdlib>
 #include <string>
 #include <vector>
@@ -32,5 +33,7 @@ public:
 	static void SetImageLayout(VkCommandBuffer & cmdBuf, VkQueue & queue, VkImage image, VkImageAspectFlags aspectMask, VkImageLayout old_image_layout, VkImageLayout new_image_layout);
 
 	static void createImage(int width, int height, VkFormat format, int usage, GraphicsImage *attachment, VkCommandBuffer layoutCmd, VkQueue layoutQueue, VkDevice device, VkPhysicalDeviceMemoryProperties memoryProp);
+
+	static std::string ReadFileString(std::string fileName);
 };
 
