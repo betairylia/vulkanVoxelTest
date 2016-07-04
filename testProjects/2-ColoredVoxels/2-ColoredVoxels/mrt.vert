@@ -21,7 +21,7 @@ void main() {
 	worldPosition = (myBufferVals.model * vec4(pos, 1.0)).xyz;
 	worldNormal = transpose(inverse(mat3(myBufferVals.model))) * normalize(normal);
    vec4 outPos = myBufferVals.proj * myBufferVals.view * myBufferVals.model * vec4(pos, 1.0);
-   outColor = vec4(0.8, 1, 0.6, 1);
+   outColor = vec4(0.2, 0.3, 0, 1);
    depth = outPos.z / outPos.w;
    gl_Position = outPos;
 }
