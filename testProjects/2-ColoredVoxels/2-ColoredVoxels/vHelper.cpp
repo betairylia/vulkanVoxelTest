@@ -14,7 +14,7 @@ vHelper::~vHelper()
 bool vHelper::MemoryTypeFromProperties(VkPhysicalDeviceMemoryProperties memory_properties, uint32_t typeBits, VkFlags requirements_mask, uint32_t * typeIndex)
 {
 	// Search memtypes to find first index with those properties
-	for (uint32_t i = 0; i < 32; i++) {
+	for (uint32_t i = 0; i < memory_properties.memoryTypeCount; i++) {
 		if ((typeBits & 1) == 1) {
 			// Type is available, does it match user properties?
 			if ((memory_properties.memoryTypes[i].propertyFlags &
@@ -113,7 +113,7 @@ void vHelper::createImage(int width, int height, VkFormat format, int usage, Gra
 	image_create_info.arrayLayers = 1;
 	image_create_info.samples = VK_SAMPLE_COUNT_1_BIT;
 	image_create_info.tiling = VK_IMAGE_TILING_OPTIMAL;
-	image_create_info.usage = usage;
+	image_create_info.usage = usage | VK_IMAGE_USAGE_SAMPLED_BIT;
 
 	VkMemoryAllocateInfo memAlloc = {};
 	memAlloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
