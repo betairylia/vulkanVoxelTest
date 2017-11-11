@@ -106,42 +106,48 @@ void VulkanRenderer::InitRenderChain(
 	//init images
 	vHelper::createImage(
 		width, height,
-		VK_FORMAT_R16G16B16A16_SFLOAT,
+		VK_FORMAT_R32G32B32A32_SFLOAT,
+		//VK_FORMAT_R16G16B16A16_SFLOAT,
 		VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 		&imagePool.position,
 		m_cmdBuffer, m_queue, m_device, m_memoryProperties);
 
 	vHelper::createImage(
 		width, height,
-		VK_FORMAT_R16G16B16A16_SFLOAT,
+		VK_FORMAT_R32G32B32A32_SFLOAT,
+		//VK_FORMAT_R16G16B16A16_SFLOAT,
 		VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 		&imagePool.normal,
 		m_cmdBuffer, m_queue, m_device, m_memoryProperties);
 
 	vHelper::createImage(
 		width, height,
-		VK_FORMAT_R16G16B16A16_SFLOAT,
+		VK_FORMAT_R32G32B32A32_SFLOAT,
+		//VK_FORMAT_R16G16B16A16_SFLOAT,
 		VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 		&imagePool.color,
 		m_cmdBuffer, m_queue, m_device, m_memoryProperties);
 
 	vHelper::createImage(
 		width, height,
-		VK_FORMAT_R16G16B16A16_SFLOAT,
+		VK_FORMAT_R32G32B32A32_SFLOAT,
+		//VK_FORMAT_R16G16B16A16_SFLOAT,
 		VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 		&imagePool.combined_AO,
 		m_cmdBuffer, m_queue, m_device, m_memoryProperties);
 
 	vHelper::createImage(
 		width, height,
-		VK_FORMAT_R16G16B16A16_SFLOAT,
+		VK_FORMAT_R32G32B32A32_SFLOAT,
+		//VK_FORMAT_R16G16B16A16_SFLOAT,
 		VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 		&imagePool.blurX_AO,
 		m_cmdBuffer, m_queue, m_device, m_memoryProperties);
 
 	vHelper::createImage(
 		width, height,
-		VK_FORMAT_R16G16B16A16_SFLOAT,
+		VK_FORMAT_R32G32B32A32_SFLOAT,
+		//VK_FORMAT_R16G16B16A16_SFLOAT,
 		VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 		&imagePool.blurY_AO,
 		m_cmdBuffer, m_queue, m_device, m_memoryProperties);
@@ -196,7 +202,7 @@ void VulkanRenderer::InitRenderChain(
 		true, m_device, m_GPUs[0], m_memoryProperties,
 		m_cmdBuffer, m_queue,
 		width, height,
-		{ imagePool.blurY_AO, imagePool.position },
+		{ imagePool.blurY_AO, imagePool.color, imagePool.position },
 		m_swapChainImgBuffer.data(), m_swapChainImageCount, m_colorImgFormat,
 		m_descPool, simpleSampler, m_viBinding, m_viAttribs,
 		vHelper::ReadFileString("SQuad.vert").c_str(), vHelper::ReadFileString("DOF.frag").c_str(),
