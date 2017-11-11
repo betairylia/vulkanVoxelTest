@@ -8,20 +8,13 @@ layout (set = 2, binding = 1) uniform sampler2D samplerNormal;
 layout (location = 0) in vec2 uv;
 layout (location = 0) out vec4 outColor;
 
-<<<<<<< HEAD
 vec2 invRes = vec2(1.0 / 1400.0, 1.0 / 900.0);
-=======
-vec2 invRes = vec2(1.0 / 140.0, 1.0 / 90.0);
->>>>>>> 5a2f215fb705280660f2a78b7c5e2bd3faf6d85d
 mat3 kernel9 = mat3(0.0751, 0.1238, 0.0751, 0.1238, 0.2042, 0.1238, 0.0751, 0.1238, 0.0751);
 
 void main()
 {
     int i, j;
-<<<<<<< HEAD
 
-=======
->>>>>>> 5a2f215fb705280660f2a78b7c5e2bd3faf6d85d
     vec4 sum = vec4(0.0, 0.0, 0.0, 0.0);
     vec2 nUV = vec2(0.0, 0.0);
     vec3 vNormal = texture(samplerNormal, uv).rgb;
@@ -35,14 +28,7 @@ void main()
                 sum += (texture(samplerResult,nUV)*kernel9[i+1][j+1]);
         }
     }
-<<<<<<< HEAD
-
     /*outColor = texture(samplerResult, uv) * sum;*/
     outColor = sum;
     /*outColor = texture(samplerResult, uv);*/
-=======
-    /*outColor = texture(samplerColor, uv) * sum;*/
-    //outColor = sum;
-    outColor = texture(samplerResult, uv);
->>>>>>> 5a2f215fb705280660f2a78b7c5e2bd3faf6d85d
 }

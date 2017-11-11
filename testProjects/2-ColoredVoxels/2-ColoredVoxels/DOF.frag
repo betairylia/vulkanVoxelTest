@@ -4,12 +4,8 @@
 #extension GL_ARB_shading_language_420pack : enable
 
 layout (set = 2, binding = 0) uniform sampler2D samplerResult;
-<<<<<<< HEAD
 layout (set = 2, binding = 1) uniform sampler2D samplerColor;
 layout (set = 2, binding = 2) uniform sampler2D samplerPosition;
-=======
-layout (set = 2, binding = 1) uniform sampler2D samplerPosition;
->>>>>>> 5a2f215fb705280660f2a78b7c5e2bd3faf6d85d
 layout (location = 0) in vec2 uv;
 layout (location = 0) out vec4 outColor;
 
