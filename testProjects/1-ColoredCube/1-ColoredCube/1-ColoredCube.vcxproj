@@ -22,7 +22,7 @@
     <ProjectGuid>{FF347557-FD49-41EB-9680-1A2F67909007}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>My1ColoredCube</RootNamespace>
-    <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.16299.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -106,12 +106,20 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
+<<<<<<< HEAD
       <AdditionalIncludeDirectories>C:\VulkanSDK\1.0.61.1\Include;C:\Users\Betairya Sapphire\Documents\Research_Projs_CG\vulkanVoxelTest\testProjects\1-ColoredCube\1-ColoredCube\glm;C:\Repos\vulkanVoxelTest\testProjects\1-ColoredCube\1-ColoredCube\glm;C:\VulkanSDK\1.0.61.1\glslang;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+=======
+      <AdditionalIncludeDirectories>C:\Users\Konagaya\Documents\RP_CG\vulkanVoxelTest\testProjects\1-ColoredCube\1-ColoredCube\glm;C:\VulkanSDK\1.0.61.1\Include;C:\VulkanSDK\1.0.61.1\glslang;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+>>>>>>> 5a2f215fb705280660f2a78b7c5e2bd3faf6d85d
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+<<<<<<< HEAD
       <AdditionalLibraryDirectories>C:\VulkanSDK\1.0.61.1\Lib;C:\VulkanSDK\1.0.61.1\glslang\lib\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+=======
+      <AdditionalLibraryDirectories>C:\VulkanSDK\1.0.61.1\lib;C:\VulkanSDK\1.0.61.1\Bin;C:\VulkanSDK\1.0.61.1\glslang\lib\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+>>>>>>> 5a2f215fb705280660f2a78b7c5e2bd3faf6d85d
       <AdditionalDependencies>vulkan-1.lib;VKstatic.1.lib;glslang.lib;SPIRV.lib;glslang-default-resource-limits.lib;HLSL.lib;OGLCompiler.lib;OSDependent.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>

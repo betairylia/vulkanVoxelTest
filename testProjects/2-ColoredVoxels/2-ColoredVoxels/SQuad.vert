@@ -19,7 +19,11 @@ out gl_PerVertex
     vec4 gl_Position;
 };
 
+<<<<<<< HEAD
 void main()
+=======
+void main() 
+>>>>>>> 5a2f215fb705280660f2a78b7c5e2bd3faf6d85d
 {
    outUV = vec2(uv.x, 1.0 - uv.y);
    gl_Position = vec4(pos, 1.0);

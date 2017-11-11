@@ -1,4 +1,5 @@
 #version 450
+
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_420pack : enable
 
@@ -12,9 +13,20 @@ layout (location = 2) out vec4 outColor3;
 
 void main()
 {
+<<<<<<< HEAD
    outColor = vec4(worldPosition, depth);
    outColor2 = vec4(worldNormal, 1.0);
 
    float diffuse = 0.4 + 0.3 * dot(worldNormal, normalize(vec3(1.0f, 2.0f, -0.8f)));
    outColor3 = color * diffuse;
+=======
+    outColor = vec4(worldPosition, depth);
+    outColor2 = vec4(worldNormal, 1.0);
+
+    vec3 lightDircInv = normalize(vec3(0.3f, 1.0f, 0.8f));
+    vec4 viewPos = vec4(0.0f, 0.0f, 0.0f, 1.0f);
+
+    //basic lighting
+    outColor3 = 0.7f * color + 0.3f * dot(worldNormal, lightDircInv) * color;
+>>>>>>> 5a2f215fb705280660f2a78b7c5e2bd3faf6d85d
 }

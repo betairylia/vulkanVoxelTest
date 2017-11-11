@@ -1,4 +1,5 @@
 #version 450
+
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_420pack : enable
 
@@ -44,7 +45,13 @@ void main()
         fRes = max(0.0, 1.0 - sqrt(fAbsV) / fRadius) * max(0.0, dot(sdPos / sqrt(fAbsV), vNormal) - 0.01);
         occ += fScaler * fRes;
     }
+<<<<<<< HEAD
     occ = 1-(occ / sampleCount);
     /*outColor = vec4(texture(samplerColor, uv).rgb * diffuse * occ, 1.0);*/
     outColor = vec4(occ, occ, occ, 1.0);
+=======
+    occ = 1 - (occ / sampleCount);
+    outColor = vec4(texture(samplerColor, uv).rgb * occ, 1.0);
+    /*outColor = vec4(occ, occ, occ, 1.0);*/
+>>>>>>> 5a2f215fb705280660f2a78b7c5e2bd3faf6d85d
 }

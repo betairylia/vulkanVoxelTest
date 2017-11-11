@@ -1,4 +1,5 @@
 #version 450
+
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_420pack : enable
 
@@ -9,6 +10,7 @@ layout (location = 0) out vec4 outColor;
 
 vec2 invRes = vec2(1.0 / 140.0, 1.0 / 90.0);
 mat3 kernel9 = mat3(0.0751, 0.1238, 0.0751, 0.1238, 0.2042, 0.1238, 0.0751, 0.1238, 0.0751);
+<<<<<<< HEAD
 
 void main()
 {
@@ -30,5 +32,9 @@ void main()
 
     outColor = texture(samplerResult, uv) * sum;
     //outColor = sum;*/
+=======
+void main()
+{
+>>>>>>> 5a2f215fb705280660f2a78b7c5e2bd3faf6d85d
     outColor = texture(samplerResult, uv);
 }
