@@ -1,19 +1,19 @@
-#Vulkan Voxel Test
+# Vulkan Voxel Test
 Some Test Projects of a voxel engine for Vulkan.
 
-##-Compile
+## Compile
 Now, there're only test projects.
 
 They are divided into folders. Open them and open the *.sln file to run.
 
-##-Project List
-###01-Colored Cube
+## Project List
+### 01-Colored Cube
 ![Colored Cube](projImg/01.png)
 
 A Simple colored cube. Creating by following vulkan lunar-G samples.
 
 
-###02-Colored Voxels
+### 02-Colored Voxels
 ![Colored Voxel](projImg/02.png)
 
 Colored blocks.
