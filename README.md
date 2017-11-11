@@ -20,7 +20,7 @@ Colored blocks.
 
 In current version, there're two 32x32x32 dynamic chunks moving in the scene.
 
-With Deferred shading and simple SSAO (No blurring)
+With Deferred shading and simple SSAO (and a 3x3 Gaussian blur with dotProduct > 0.9)
 
 Block data in each chunk changes every 5 frames.
 
